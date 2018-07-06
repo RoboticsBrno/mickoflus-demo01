@@ -23,37 +23,58 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
     if(command == "joy") {
         rb::Motor& lmotor = ctx->motors.motor(0);
         rb::Motor& rmotor = ctx->motors.motor(1);
+        rb::Motor& horturret = ctx->motors.motor(2);
+        rb::Motor& verturret = ctx->motors.motor(3);
 
         rbjson::Array *data = pkt->getArray("data");
         rbjson::Object *joy0 = data->getObject(0);
+        rbjson::Object *joy1 = data->getObject(1);
         
-        int x = joy0->getInt("x");
-        int y = joy0->getInt("y");
+        int x0 = joy0->getInt("x");
+        int y0 = joy0->getInt("y");
 
-        x = ((float(x) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        y = ((float(y) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        int x1 = joy1->getInt("x");
+        int y1 = joy1->getInt("y");
 
-        const int r = ((y - (x/2)));
-        const int l = ((y + (x/2)));
+        x0 = ((float(x0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        y0 = ((float(y0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        x1 = ((float(x1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        y1 = ((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+
+        const int r = ((y0 - (x0/2)));
+        const int l = ((y0 + (x0/2)));
 
         //printf("%d %d | %d %d\n", x, y, l, r);
 
         lmotor.power(l);
         rmotor.power(r);
+        horturret.power(x1);
+        verturret.power(y1);
         ctx->motors.update();
     } else if(command == "fire") {
+        rb::Motor& gun = ctx->motors.motor(4);
+        gun.power(100);
+        ctx->motors.update();
+
         printf("\n\nFIRE THE MISSILESS\n\n");
+
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        gun.power(0);
+        ctx->motors.update();
     }
 }
 
 extern "C" void app_main() {
-    blufi_init("flus");
+    blufi_init("FlusOne");
 
     rb_web_start(80);
 
     struct ctx_t ctx;
+
+    ctx.motors.motor(2).pwmMaxPercent(30);
+    ctx.motors.motor(3).pwmMaxPercent(30);
     
-    RbProtocol rb("Vojta", "Flus", "The very best flus", &onPktReceived, &ctx);
+    RbProtocol rb("Robocamp", "FlusOne", "The very best flus", &onPktReceived, &ctx);
     rb.start();
 
     printf("Hello world!\n");
