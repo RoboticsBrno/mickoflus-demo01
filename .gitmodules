@@ -1,0 +1,9 @@
+[submodule "lib/RB3201-RBControl-library"]
+	path = lib/RB3201-RBControl-library
+	url = https://github.com/RoboticsBrno/RB3201-RBControl-library.git
+[submodule "lib/RB3201-RBProtocol-library"]
+	path = lib/RB3201-RBProtocol-library
+	url = https://github.com/RoboticsBrno/RB3201-RBProtocol-library.git
+[submodule "lib/blufi-basic"]
+	path = lib/blufi-basic
+	url = https://github.com/RoboticsBrno/blufi-basic.git

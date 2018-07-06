@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/tassadar/.platformio/penv/bin:/home/tassadar/.platformio/penv:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/usr/lib/jvm/java-9-oracle/bin:/usr/lib/jvm/java-9-oracle/db/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
