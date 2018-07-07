@@ -11,12 +11,18 @@
 
 #include "RBControl_motors.hpp"
 
+#define NAME "FlusOne"
+
 struct ctx_t {
     ctx_t() { }
     ~ctx_t() {}
 
     rb::Motors motors;
 };
+
+static float scale_decel(float x) {
+    return (1.f - (1.f - x) * (1.f - x));
+}
 
 void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt) {
     struct ctx_t *ctx = (ctx_t*)cookie;
@@ -33,13 +39,24 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
         int x0 = joy0->getInt("x");
         int y0 = joy0->getInt("y");
 
-        int x1 = joy1->getInt("x");
+        int x1 = joy1->getInt("x") * -1;
         int y1 = joy1->getInt("y");
 
-        x0 = ((float(x0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        y0 = ((float(y0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        x1 = ((float(x1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        y1 = ((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        if(x0 != 0)
+            x0 = ((float(x0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        if(y0 != 0)
+            y0 = ((float(y0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+
+        if(x1 > -6000 && x1 < 6000)
+            x1 = 0;
+        else
+            x1 = scale_decel((float(x1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        
+
+        if(y1 > -6000 && y1 < 6000)
+            y1 = 0;
+        else
+            y1 = scale_decel((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
 
         const int r = ((y0 - (x0/2)));
         const int l = ((y0 + (x0/2)));
@@ -65,16 +82,18 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
 }
 
 extern "C" void app_main() {
-    blufi_init("FlusOne");
+    blufi_init(NAME);
 
     rb_web_start(80);
 
     struct ctx_t ctx;
 
-    ctx.motors.motor(2).pwmMaxPercent(30);
-    ctx.motors.motor(3).pwmMaxPercent(30);
+    ctx.motors.motor(0).pwmMaxPercent(70);
+    ctx.motors.motor(1).pwmMaxPercent(70);
+    ctx.motors.motor(2).pwmMaxPercent(25);
+    ctx.motors.motor(3).pwmMaxPercent(28);
     
-    RbProtocol rb("Robocamp", "FlusOne", "The very best flus", &onPktReceived, &ctx);
+    RbProtocol rb("Robocamp", NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &ctx);
     rb.start();
 
     printf("Hello world!\n");
