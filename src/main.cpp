@@ -20,59 +20,77 @@ struct ctx_t {
     rb::Motors motors;
 };
 
+static int iabs(int x) {
+    return x >= 0 ? x : -x;
+}
+
 static float scale_decel(float x) {
     return (1.f - (1.f - x) * (1.f - x));
+}
+
+static int scale_range(float x, float omin, float omax, float nmin, float nmax) {
+    return ((float(x) - omin) / (omax - omin)) * (nmax - nmin) - nmax;
+}
+
+static int scale_range_decel(float x, float omin, float omax, float nmin, float nmax) {
+    return scale_decel((float(x) - omin) / (omax - omin)) * (nmax - nmin) - nmax;
+}
+
+static int scale_motors(float val) {
+    return scale_range(val, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100.f, 100.f);
 }
 
 void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt) {
     struct ctx_t *ctx = (ctx_t*)cookie;
     if(command == "joy") {
-        rb::Motor& lmotor = ctx->motors.motor(0);
-        rb::Motor& rmotor = ctx->motors.motor(1);
-        rb::Motor& horturret = ctx->motors.motor(2);
-        rb::Motor& verturret = ctx->motors.motor(3);
-
-        rbjson::Array *data = pkt->getArray("data");
-        rbjson::Object *joy0 = data->getObject(0);
-        rbjson::Object *joy1 = data->getObject(1);
+        const rbjson::Array *data = pkt->getArray("data");
         
-        int x0 = joy0->getInt("x");
-        int y0 = joy0->getInt("y");
+        // Drive
+        {
+            const rbjson::Object *joy = data->getObject(0);
+            int x = joy->getInt("x");
+            int y = joy->getInt("y");
 
-        int x1 = joy1->getInt("x") * -1;
-        int y1 = joy1->getInt("y");
+            if(x != 0)
+                x = scale_motors(x);
+            if(y != 0)
+                y = scale_motors(y);
 
-        if(x0 != 0)
-            x0 = ((float(x0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        if(y0 != 0)
-            y0 = ((float(y0) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+            int r = ((y - (x/2)));
+            int l = ((y + (x/2)));
+            if(r < 0 && l < 0) {
+                int tmp = r; r = l; l = tmp;
+            }
 
-        if(x1 > -6000 && x1 < 6000)
-            x1 = 0;
-        else
-            x1 = scale_decel((float(x1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-
-        if(y1 > -6000 && y1 < 6000)
-            y1 = 0;
-        else if(y1 > 0)
-            y1 = scale_decel((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        else
-            y1 = scale_decel((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 100.f - 50.f;
-
-        int r = ((y0 - (x0/2)));
-        int l = ((y0 + (x0/2)));
-        if(r < 0 && l < 0) {
-            int tmp = r;
-            r = l;
-            l = tmp;
+            ctx->motors.motor(0).power(l);
+            ctx->motors.motor(1).power(r);
         }
 
-        //printf("%d %d | %d %d\n", x, y, l, r);
+        // Turret
+        {
+            const rbjson::Object *joy = data->getObject(1);
+            int x = joy->getInt("x") * -1;
+            int y = joy->getInt("y");
 
-        lmotor.power(l);
-        rmotor.power(r);
-        horturret.power(x1);
-        verturret.power(y1);
+            if(iabs(x) < 6000) {
+                x = 0;
+            } else {
+                x = scale_range_decel(x, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100, 100);
+            }
+
+            if(x != 0 || iabs(y) < 6000) {
+                y = 0;
+            } else{
+                if(y > 0)
+                    y = scale_range_decel(y, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100, 100);
+                else
+                    y = scale_range_decel(y, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -75, 75);
+            }
+
+            ctx->motors.motor(2).power(x);
+            ctx->motors.motor(3).power(y);
+        }
+
         ctx->motors.update();
     } else if(command == "fire") {
         rb::Motor& gun = ctx->motors.motor(4);
@@ -81,7 +99,7 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
 
         printf("\n\nFIRE THE MISSILESS\n\n");
 
-        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        vTaskDelay(2500 / portTICK_PERIOD_MS);
         gun.power(0);
         ctx->motors.update();
     }
@@ -97,7 +115,7 @@ extern "C" void app_main() {
     ctx.motors.motor(0).pwmMaxPercent(70);
     ctx.motors.motor(1).pwmMaxPercent(70);
     ctx.motors.motor(2).pwmMaxPercent(25);
-    ctx.motors.motor(3).pwmMaxPercent(35);
+    ctx.motors.motor(3).pwmMaxPercent(50);
     
     RbProtocol rb("Robocamp", NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &ctx);
     rb.start();
