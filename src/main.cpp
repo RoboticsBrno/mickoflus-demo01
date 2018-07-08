@@ -9,16 +9,9 @@
 #include "rbprotocol.h"
 #include "rbwebserver.h"
 
-#include "RBControl_motors.hpp"
+#include "RBControl_manager.hpp"
 
 #define NAME "FlusOne"
-
-struct ctx_t {
-    ctx_t() { }
-    ~ctx_t() {}
-
-    rb::Motors motors;
-};
 
 static int iabs(int x) {
     return x >= 0 ? x : -x;
@@ -40,11 +33,19 @@ static int scale_motors(float val) {
     return scale_range(val, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100.f, 100.f);
 }
 
+static bool turnOffGun(void *cookie) {
+    auto man = (rb::Manager*)cookie;
+    man->setMotors().power(4, 0).set();
+    return false;
+}
+
 void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt) {
-    struct ctx_t *ctx = (ctx_t*)cookie;
+    auto man = (rb::Manager*)cookie;
     if(command == "joy") {
         const rbjson::Array *data = pkt->getArray("data");
         
+        auto builder = man->setMotors();
+
         // Drive
         {
             const rbjson::Object *joy = data->getObject(0);
@@ -62,8 +63,7 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
                 int tmp = r; r = l; l = tmp;
             }
 
-            ctx->motors.motor(0).power(l);
-            ctx->motors.motor(1).power(r);
+            builder.power(0, l).power(1, r);
         }
 
         // Turret
@@ -87,21 +87,14 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
                     y = scale_range_decel(y, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -75, 75);
             }
 
-            ctx->motors.motor(2).power(x);
-            ctx->motors.motor(3).power(y);
+            builder.power(2, x).power(3, y);
         }
 
-        ctx->motors.update();
+        builder.set();
     } else if(command == "fire") {
-        rb::Motor& gun = ctx->motors.motor(4);
-        gun.power(100);
-        ctx->motors.update();
-
         printf("\n\nFIRE THE MISSILESS\n\n");
-
-        vTaskDelay(2500 / portTICK_PERIOD_MS);
-        gun.power(0);
-        ctx->motors.update();
+        man->setMotors().power(4, 100).set();
+        man->schedule(3000, &turnOffGun, man);
     }
 }
 
@@ -110,14 +103,15 @@ extern "C" void app_main() {
 
     rb_web_start(80);
 
-    struct ctx_t ctx;
+    rb::Manager man;
+    man.setMotors()
+        .pwmMaxPercent(0, 70)
+        .pwmMaxPercent(1, 70)
+        .pwmMaxPercent(2, 28)
+        .pwmMaxPercent(3, 45)
+        .set();
 
-    ctx.motors.motor(0).pwmMaxPercent(70);
-    ctx.motors.motor(1).pwmMaxPercent(70);
-    ctx.motors.motor(2).pwmMaxPercent(25);
-    ctx.motors.motor(3).pwmMaxPercent(50);
-    
-    RbProtocol rb("Robocamp", NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &ctx);
+    RbProtocol rb("Robocamp", NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &man);
     rb.start();
 
     printf("Hello world!\n");
