@@ -51,15 +51,21 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
             x1 = 0;
         else
             x1 = scale_decel((float(x1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
-        
 
         if(y1 > -6000 && y1 < 6000)
             y1 = 0;
-        else
+        else if(y1 > 0)
             y1 = scale_decel((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 200.f - 100.f;
+        else
+            y1 = scale_decel((float(y1) - (-32767.f)) / (32767.f - (-32767.f))) * 100.f - 50.f;
 
-        const int r = ((y0 - (x0/2)));
-        const int l = ((y0 + (x0/2)));
+        int r = ((y0 - (x0/2)));
+        int l = ((y0 + (x0/2)));
+        if(r < 0 && l < 0) {
+            int tmp = r;
+            r = l;
+            l = tmp;
+        }
 
         //printf("%d %d | %d %d\n", x, y, l, r);
 
@@ -91,7 +97,7 @@ extern "C" void app_main() {
     ctx.motors.motor(0).pwmMaxPercent(70);
     ctx.motors.motor(1).pwmMaxPercent(70);
     ctx.motors.motor(2).pwmMaxPercent(25);
-    ctx.motors.motor(3).pwmMaxPercent(28);
+    ctx.motors.motor(3).pwmMaxPercent(35);
     
     RbProtocol rb("Robocamp", NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &ctx);
     rb.start();
