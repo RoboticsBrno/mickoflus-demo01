@@ -1,5 +1,8 @@
 import os
 import hashlib
+import subprocess
+import json
+import re
 
 Import("env", "projenv")
 
@@ -11,6 +14,11 @@ def before_upload(source, target, env):
             with open(os.path.join(root, name), "rb") as f:
                 for chunk in iter(lambda: f.read(32787), b""):
                     hasher.update(chunk)
+
+    dev_list = subprocess.check_output([ "pio", "device", "list", "--serial", "--json-output" ], env=env["ENV"])
+    dev_list = json.loads(dev_list)
+    for d in dev_list:
+        hasher.update(d.get("hwid", ""))
 
     current_sha1 = hasher.hexdigest()
     if os.path.exists(".last_uploadfs_sha1"):
