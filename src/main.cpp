@@ -27,18 +27,20 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
 }
 
 extern "C" void app_main() {
-    blufi_init(NAME);
+    blufi_init(NAME);   // Init bluetooth-wifi setup
+    rb_web_start(80);   // Start web server with control page (see data/index.html)
 
-    rb_web_start(80);
+    rb::Manager man;    // Initialize the robot manager
 
-    rb::Manager man;
+    // Set motor power limits
     man.setMotors()
-        .pwmMaxPercent(0, 70)
-        .pwmMaxPercent(1, 70)
-        .pwmMaxPercent(2, 28)
-        .pwmMaxPercent(3, 45)
+        .pwmMaxPercent(0, 70)  // left wheel
+        .pwmMaxPercent(1, 70)  // right wheel
+        .pwmMaxPercent(2, 28)  // turret left/right
+        .pwmMaxPercent(3, 45)  // turret up/down
         .set();
 
+    // Initialize the communication protocol
     RbProtocol rb(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &man);
     rb.start();
 
@@ -48,7 +50,7 @@ extern "C" void app_main() {
     while(true) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         if(rb.is_possessed()) {
-            rb.send_log("Tick #%d\n", i++);
+            rb.send_log("Tick #%d\n", i++);  // Send text to the android application
         }
     }
 }
