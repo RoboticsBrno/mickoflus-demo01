@@ -10,6 +10,7 @@
 #include "rbwebserver.h"
 
 #include "RBControl_manager.hpp"
+#include "RBControl_battery.hpp"
 
 #include "motors.hpp"
 
@@ -46,11 +47,15 @@ extern "C" void app_main() {
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
+    man.leds().yellow();
+
     int i = 0;
+    const auto& bat = man.battery();
     while(true) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         if(rb.is_possessed()) {
-            rb.send_log("Tick #%d\n", i++);  // Send text to the android application
+            // Send text to the android application
+            rb.send_log("Tick #%d, battery at %d%%, %dmv\n", i++, bat.pct(), bat.voltageMv());
         }
     }
 }
