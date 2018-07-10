@@ -14,8 +14,9 @@
 
 #include "motors.hpp"
 
-#define OWNER "Robocamp"
-#define NAME "FlusOne"
+// CHANGE THESE so you can find the robot in the Android app
+#define OWNER "FrantaFlinta"
+#define NAME "FlusMcFlusy"
 
 void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt) {
     auto man = (rb::Manager*)cookie;
