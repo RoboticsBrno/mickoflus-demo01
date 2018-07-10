@@ -48,8 +48,12 @@ extern "C" void app_main() {
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
-    // Turn on the yellow LED
-    man.leds().yellow();
+    // Turn on the LED according to pressed buttons
+    if(man.expander().digitalRead(rb::SW1) != 0) {
+        man.leds().yellow();
+    } else {
+        man.leds().green();
+    }
 
     int i = 0;
     const auto& bat = man.battery();
