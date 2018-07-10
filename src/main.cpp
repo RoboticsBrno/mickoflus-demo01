@@ -29,7 +29,7 @@ void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt
 }
 
 extern "C" void app_main() {
-    blufi_init(NAME);   // Init bluetooth-wifi setup
+    blufi_init(NAME);   // Init bluetooth-wifi setup via EspBlufi app
     rb_web_start(80);   // Start web server with control page (see data/index.html)
 
     rb::Manager man;    // Initialize the robot manager
@@ -48,6 +48,7 @@ extern "C" void app_main() {
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
+    // Turn on the yellow LED
     man.leds().yellow();
 
     int i = 0;
