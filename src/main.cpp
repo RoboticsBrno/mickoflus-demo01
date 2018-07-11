@@ -5,18 +5,23 @@
 #include <freertos/task.h>
 #include <esp_system.h>
 
-#include "blufi.h"
 #include "rbprotocol.h"
 #include "rbwebserver.h"
 
 #include "RBControl_manager.hpp"
 #include "RBControl_battery.hpp"
+#include "RBControl_wifi.hpp"
 
 #include "motors.hpp"
 
 // CHANGE THESE so you can find the robot in the Android app
 #define OWNER "FrantaFlinta"
 #define NAME "FlusMcFlusy"
+
+// CHANGE THESE to your WiFi's settings
+#define WIFI_NAME "Mickoland"
+#define WIFI_PASSWORD "flusflus"
+
 
 void onPktReceived(rb::Protocol& protocol, void *cookie, const std::string& command, rbjson::Object *pkt) {
     auto man = (rb::Manager*)cookie;
@@ -29,7 +34,9 @@ void onPktReceived(rb::Protocol& protocol, void *cookie, const std::string& comm
 }
 
 extern "C" void app_main() {
-    blufi_init(NAME);   // Init bluetooth-wifi setup via EspBlufi app
+    // Connect to the WiFi network
+    rb::WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
+
     rb_web_start(80);   // Start web server with control page (see data/index.html)
 
     rb::Manager man;    // Initialize the robot manager
