@@ -18,7 +18,7 @@
 #define OWNER "FrantaFlinta"
 #define NAME "FlusMcFlusy"
 
-void onPktReceived(void *cookie, const std::string& command, rbjson::Object *pkt) {
+void onPktReceived(rb::Protocol& protocol, void *cookie, const std::string& command, rbjson::Object *pkt) {
     auto man = (rb::Manager*)cookie;
     if(command == "joy") {
         motors_handle_joysticks(man, pkt);
@@ -43,8 +43,8 @@ extern "C" void app_main() {
         .set();
 
     // Initialize the communication protocol
-    RbProtocol rb(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &man);
-    rb.start();
+    rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &man);
+    prot.start();
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
@@ -59,9 +59,9 @@ extern "C" void app_main() {
     const auto& bat = man.battery();
     while(true) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        if(rb.is_possessed()) {
+        if(prot.is_possessed()) {
             // Send text to the android application
-            rb.send_log("Tick #%d, battery at %d%%, %dmv\n", i++, bat.pct(), bat.voltageMv());
+            prot.send_log("Tick #%d, battery at %d%%, %dmv\n", i++, bat.pct(), bat.voltageMv());
         }
     }
 }
