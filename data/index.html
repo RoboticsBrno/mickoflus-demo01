@@ -102,7 +102,7 @@
 
   <script type="text/javascript">
     'use strict';
-    function Joystick(elementId, color, buttonText, buttonClickHandler) {
+    function Joystick(elementId, color, keys, buttonText, buttonClickHandler) {
         var zone = document.getElementById(elementId);
 
         this.radius = zone.offsetWidth/1.7 / 2;
@@ -110,6 +110,11 @@
         this.y = 0;
         this.buttonClickHandler = buttonClickHandler;
         this.touchStart = null;
+        this.keys = keys;
+        this.pressedKeys = {};
+
+        document.addEventListener("keydown", this.onKeyDown.bind(this));
+        document.addEventListener("keyup", this.onKeyUp.bind(this));
 
         this.manager = nipplejs.create({
             zone: zone,
@@ -124,9 +129,10 @@
             fadeTime: 0,
         });
 
+        this.joy = this.manager.get(this.manager.id);
+
         if(buttonText) {
-            var joy = this.manager.get(this.manager.id);
-            var nipple = joy.ui.front;
+            var nipple = this.joy.ui.front;
             nipple.innerHTML = "FIRE!"
             nipple.style.fontWeight = "bold";
             nipple.style.textAlign = "center";
@@ -155,6 +161,44 @@
             this.x = 0;
             this.y = 0;
         }.bind(this));
+    }
+
+    Joystick.prototype.onKeyDown = function(ev) {
+        var idx = this.keys.indexOf(ev.key);
+        if(idx === -1)
+            return;
+        if(idx === 4) {
+            this.buttonClickHandler();
+        }
+        this.pressedKeys[idx] = true;
+        this.updateNippleFront();
+    }
+
+    Joystick.prototype.onKeyUp = function(ev) {
+        var idx = this.keys.indexOf(ev.key);
+        if(idx === -1)
+            return;
+        this.pressedKeys[idx] = false;
+        this.updateNippleFront();
+    }
+
+    Joystick.prototype.updateNippleFront = function() {
+        var p = this.pressedKeys;
+        if(p[0] === true)
+            top -= 1;
+        if(p[2] ===  true)
+            top += 1;
+        if(p[1] === true)
+            left -= 1;
+        if(p[3] === true)
+            left += 1;
+
+        this.x = left*28000;
+        this.y = top*-28000;
+
+        var fr = this.joy.ui.front;
+        fr.style.left = (left*this.radius) + "px";
+        fr.style.top = (top*this.radius) + "px";
     }
 
     function Log(elementId) {
@@ -234,7 +278,7 @@
             this.log.write("Attempting to possess the robot...")
             this.sendMustArrive("possess", {}, true);
         }.bind(this));
-        
+
         this.socket.addEventListener('error', function(event) {
             this.log.write("Connection FAILED!")
         }.bind(this));
@@ -324,8 +368,8 @@
 
     window.addEventListener("load", function(){
         var man = new Manager("log");
-        man.addJoystick(new Joystick("joy0", "blue"));
-        man.addJoystick(new Joystick("joy1", "red", "FIRE!", function() {
+        man.addJoystick(new Joystick("joy0", "blue", "wasd"));
+        man.addJoystick(new Joystick("joy1", "red", "ijkl ", "FIRE!", function() {
             man.flashBody();
             man.sendMustArrive("fire", {});
         }));
