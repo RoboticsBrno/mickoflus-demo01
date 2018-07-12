@@ -42,8 +42,7 @@ extern "C" void app_main() {
     // Measure voltage at battery connector and
     // coef = voltageMeasureAtBatteriesInMilliVolts / raw
     auto& batt = man.battery();
-    batt.setCoef(9.f);
-    printf("BATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n", batt.raw(), batt.coef(), batt.voltageMv());
+    batt.setCoef(9.0);
 
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
@@ -71,6 +70,9 @@ extern "C" void app_main() {
     prot.start();
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    printf("\n\nBATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n\n\n", batt.raw(), batt.coef(), batt.voltageMv());
 
     int i = 0;
     while(true) {
