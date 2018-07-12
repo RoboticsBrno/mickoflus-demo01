@@ -184,6 +184,8 @@
 
     Joystick.prototype.updateNippleFront = function() {
         var p = this.pressedKeys;
+        var left = 0;
+        var top = 0;
         if(p[0] === true)
             top -= 1;
         if(p[2] ===  true)
