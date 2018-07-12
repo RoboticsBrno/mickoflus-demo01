@@ -38,6 +38,13 @@ extern "C" void app_main() {
     // Initialize the robot manager
     rb::Manager man;
 
+    // Set the battery measuring coefficient.
+    // Measure voltage at battery connector and
+    // coef = voltageMeasureAtBatteriesInMilliVolts / raw
+    auto& batt = man.battery();
+    batt.setCoef(9.f);
+    printf("BATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n", batt.raw(), batt.coef(), batt.voltageMv());
+
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
     // else create an AP.
@@ -66,12 +73,11 @@ extern "C" void app_main() {
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
     int i = 0;
-    const auto& bat = man.battery();
     while(true) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         if(prot.is_possessed()) {
             // Send text to the android application
-            prot.send_log("Tick #%d, battery at %d%%, %dmv\n", i++, bat.pct(), bat.voltageMv());
+            prot.send_log("Tick #%d, battery at %d%%, %dmv\n", i++, batt.pct(), batt.voltageMv());
         }
     }
 }
