@@ -59,10 +59,10 @@ extern "C" void app_main() {
 
     // Set motor power limits
     man.setMotors()
-        .pwmMaxPercent(0, 70)  // left wheel
-        .pwmMaxPercent(1, 70)  // right wheel
-        .pwmMaxPercent(2, 28)  // turret left/right
-        .pwmMaxPercent(3, 45)  // turret up/down
+        .pwmMaxPercent(MOTOR_LEFT, 70)  // left wheel
+        .pwmMaxPercent(MOTOR_RIGHT, 70)  // right wheel
+        .pwmMaxPercent(MOTOR_TURRET_ROTATION, 28)  // turret left/right
+        .pwmMaxPercent(MOTOR_TURRET_PITCH, 45)  // turret up/down
         .set();
 
     // Initialize the communication protocol

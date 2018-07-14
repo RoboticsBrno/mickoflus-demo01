@@ -23,12 +23,6 @@ static int scale_motors(float val) {
     return scale_range(val, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100.f, 100.f);
 }
 
-static bool turnOffGun(void *cookie) {
-    auto man = (rb::Manager*)cookie;
-    man->setMotors().power(4, 0).set();
-    return false;
-}
-
 void motors_handle_joysticks(rb::Manager *man, rbjson::Object *pkt) {
     const rbjson::Array *data = pkt->getArray("data");
         
@@ -51,7 +45,7 @@ void motors_handle_joysticks(rb::Manager *man, rbjson::Object *pkt) {
             int tmp = r; r = l; l = tmp;
         }
 
-        builder.power(0, l).power(1, r);
+        builder.power(MOTOR_LEFT, l).power(MOTOR_RIGHT, r);
     }
 
     // Turret
@@ -75,13 +69,20 @@ void motors_handle_joysticks(rb::Manager *man, rbjson::Object *pkt) {
                 y = scale_range_decel(y, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -75, 75);
         }
 
-        builder.power(2, x).power(3, y);
+        builder.power(MOTOR_TURRET_ROTATION, x).power(MOTOR_TURRET_PITCH, y);
     }
 
     builder.set();
 }
 
+
+static bool turnOffGun(void *cookie) {
+    auto man = (rb::Manager*)cookie;
+    man->setMotors().power(MOTOR_GUN, 0).set();
+    return false;
+}
+
 void motors_fire_gun(rb::Manager *man) {
-    man->setMotors().power(4, 100).set();
+    man->setMotors().power(MOTOR_GUN, 100).set();
     man->schedule(3000, &turnOffGun, man);
 }
