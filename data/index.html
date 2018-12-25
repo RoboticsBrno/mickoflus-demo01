@@ -9,14 +9,24 @@
   body {
     padding: 0px;
     margin: 0px;
+    height: 100%;
+    width: 100%;
+  }
+  html {
+    height: 100%;
+    width: 100%;
   }
   .joy {
     position: absolute;
     height: 175px;
     width: 175px;
   }
-  #joy1 {
-    bottom: 175px;
+  #arm0 {
+      width: 100%;
+      height: 40%;
+      background-color: #eee;
+      position: absolute;
+      left: 0;
   }
 
   @media all and (min-width: 400px) {
@@ -24,17 +34,11 @@
       height: 250px;
       width: 250px;
     }
-    #joy1 {
-      bottom: 250px;
-    }
   }
   @media all and (min-width: 900px) {
     .joy {
       height: 400px;
       width: 400px;
-    }
-    #joy1 {
-      bottom: 400px;
     }
   }
 
@@ -51,19 +55,16 @@
         right: 0px;
       }
     }
-
-    #joy1 {
-      left: 0px;
-    }
   }
   @media all and (orientation:landscape) {
     #joy0 {
       right: 0px;
       bottom: 0px;
     }
-    #joy1 {
-      left: 0px;
-      bottom: 0px;
+    #arm0 {
+      width: 50%;
+      height: calc(100% - 106px);
+      bottom: 0;
     }
   }
 
@@ -78,8 +79,7 @@
     overflow-y: scroll;
   }
   .log-short {
-    height: 10em;
-    box-shadow: 0 20px 20px 0 rgba(0, 0, 0, 0.2);
+    height: 100px;
   }
   .log-full {
     height: 100%;
@@ -94,11 +94,14 @@
 <body id="body">
   <div id="log" class="log-short"> </div>
 
+  <canvas id="arm0"></canvas>
+
   <div id="joy0" class="joy"> </div>
-  <div id="joy1" class="joy"> </div>
+
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.6.8/nipplejs.min.js"></script>
+  <script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/222599/canvas-pointer.js?v=20150516"></script>
 
   <script type="text/javascript">
     'use strict';
@@ -203,6 +206,214 @@
         fr.style.top = (top*this.radius) + "px";
     }
 
+    function Segment (other) {
+		this.sx = 0;
+		this.sy = 0;
+		this.ex = 0;
+		this.ey = 0;
+		this.len = 0;
+		this.len2 = 0;
+        this.angle = 0;
+
+		if(other !== undefined)
+			Object.assign(this, other)
+	}
+
+	Segment.prototype = {
+		set length (len) {
+			this.len = len;
+			this.len2 = len * len;
+		}
+	}
+
+    Segment.prototype.updateAngle = function (angle) {
+        this.angle = angle;
+		this.ex = this.sx + this.len * Math.cos(angle);
+		this.ey = this.sy + this.len * Math.sin(angle);
+    }
+
+    function Arm(canvasId) {
+        this.ARM_LEN = 16;
+        this.JOINT_OFFSET = 3.2;
+        this.JOINT_ANGLE = -Math.PI/2;
+        this.BODY_HEIGHT = 5;
+        this.BODY_RADIUS = 8;
+
+        this.angles = [ 0, 180 ];
+
+        this.canvas = ge1doot.canvas(canvasId);
+        this.canvas.resize = this.resize.bind(this);
+
+        this.unit = 1;
+        this.origin = {x:0, y:0}
+        this.segment1 = new Segment();
+        this.segment2 = new Segment();
+        this.segmentJoint = new Segment();
+
+        this.pointer = this.canvas.pointer;
+        this.clicked = false;
+        this.pointer.down = function() { this.clicked = true; }.bind(this)
+        this.pointer.up = function() { this.clicked = false; }.bind(this)
+        this.pointer.move = function() {
+            if(this.clicked)
+                requestAnimationFrame(this.run.bind(this));
+        }.bind(this)
+
+        this.resize();
+        this.pointer.x = this.origin.x;
+        this.pointer.y = this.origin.y - (this.JOINT_OFFSET * this.unit);
+        this.run();
+    }
+
+    Arm.prototype.resize = function() {
+        this.unit = Math.min(this.canvas.width/2, this.canvas.height *0.7) / (this.ARM_LEN*2.2)
+
+        this.origin.x = this.canvas.width / 2;
+        this.origin.y = this.canvas.height * 0.8;
+
+        var length = this.unit * this.ARM_LEN;
+        this.segment1.length = length;
+        this.segment2.length = length;
+        this.segmentJoint.length = this.unit * this.JOINT_OFFSET;
+
+        this.segment1.sx = this.origin.x;
+		this.segment1.sy = this.origin.y;
+
+        this.segment1.updateAngle(this.segment1.angle);
+        this.segment2.sx = this.segment1.ex;
+        this.segment2.sy = this.segment1.ey;
+        this.segment1.ex += this.segmentJoint.len*Math.cos(this.segmentJoint.angle)
+		this.segment1.ey += this.segmentJoint.len*Math.sin(this.segmentJoint.angle)
+        this.segment2.updateAngle(this.segment2.angle);
+        this.segmentJoint.sx = this.segment2.sx;
+        this.segmentJoint.sy = this.segment2.sy;
+        this.segmentJoint.updateAngle(this.segmentJoint.angle);
+        this.pointer.x = this.segment2.ex;
+        this.pointer.y = this.segment2.ey;
+
+        this.run();
+    }
+
+    Arm.prototype.run = function() {
+        this.updateSegments();
+
+        var ctx = this.canvas.ctx;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawLine(this.origin.x - this.BODY_RADIUS/2 * this.unit, this.origin.y - (this.BODY_HEIGHT/2 * this.unit), "brown", this.BODY_HEIGHT * this.unit);
+        this.drawSegment(this.segment1, "navy");
+        this.drawSegment(this.segment2, "green");
+        this.drawSegment(this.segmentJoint, "black", 3);
+
+        ctx.beginPath();
+        ctx.fillStyle = "red";
+        ctx.moveTo(this.segment2.ex, this.segment2.ey);
+        ctx.arc(this.segment2.ex, this.segment2.ey, 12, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    Arm.prototype.drawSegment = function(seg, color) {
+        this.drawLine(seg.sx, seg.sy, seg.ex, seg.ey, color, 3, 6);
+    }
+
+    Arm.prototype.drawLine = function(x0, y0, x1, y1, color, width, dotRadius) {
+        var ctx = this.canvas.ctx;
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = width;
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+        if(dotRadius !== undefined) {
+            ctx.moveTo(x0, y0);
+            ctx.arc(x0, y0, dotRadius, 0, 2 * Math.PI);
+            ctx.moveTo(x1, y1);
+            ctx.arc(x1, y1, dotRadius, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+	Arm.prototype.constraint = function(input, lowerBound, upperBound) {
+		if (input >= lowerBound && input <= upperBound)
+            return input;
+
+		while (Math.abs(upperBound - input ) > Math.PI)
+			input += 2 * Math.PI * (input < upperBound ? 1.0 : -1.0);
+	    var distance_to_upper = Math.abs(upperBound - input);
+
+		while (Math.abs(lowerBound - input) > Math.PI)
+				input += 2 * Math.PI * (input < lowerBound ? 1.0 : -1.0);
+		var distance_to_lower = Math.abs(lowerBound - input);
+
+		if (distance_to_lower < distance_to_upper)
+			return lowerBound;
+		else
+			return upperBound;
+	}
+
+	Arm.prototype.updateSegments = function() {
+		var angle, theta1, theta2, targetSqrDist;
+
+		var ix = this.pointer.x - this.origin.x;
+		var iy = Math.min(this.pointer.y - this.origin.y, this.unit*this.BODY_HEIGHT)
+
+		if(iy > 0 && Math.abs(ix) < this.BODY_RADIUS*this.unit)
+			ix = this.BODY_RADIUS*this.unit*Math.sign(ix)
+
+		var ns1 = new Segment(this.segment1);
+		var ns2 = new Segment(this.segment2);
+
+		// target square distance
+		targetSqrDist = ix * ix + iy * iy;
+
+		// first segment
+		angle = Math.max(-1, Math.min( 1,
+			(targetSqrDist + ns1.len2 - ns2.len2) / (2 * ns1.len * Math.sqrt(targetSqrDist))
+		));
+
+		if(isNaN(angle))
+			angle = 0;
+
+		var ang = this.JOINT_ANGLE - Math.atan(this.segmentJoint.len/ns1.len)
+
+		theta1 = this.constraint(Math.atan2(iy, ix) - Math.acos(angle), -Math.PI, 0);
+
+		var thdiff = Math.atan(this.segmentJoint.len/ns1.len)
+		if(theta1 - thdiff < -Math.PI) {
+			theta1 = -Math.PI + thdiff;
+		}
+
+        ns1.updateAngle(theta1);
+		ns2.sx = ns1.ex;
+		ns2.sy = ns1.ey;
+        ns1.ex += this.segmentJoint.len*Math.cos(theta1 + ang)
+		ns1.ey += this.segmentJoint.len*Math.sin(theta1 + ang)
+
+		// second segment
+		angle = Math.max(-1, Math.min(1,
+			(targetSqrDist - ns1.len2 - ns2.len2) / (2 * ns1.len * ns2.len)
+		));
+
+		theta2 = this.constraint(Math.acos(angle), -1.06, Math.PI-thdiff)
+
+        ns2.updateAngle(theta1 + theta2);
+
+		var distNew = Math.sqrt(Math.pow(this.pointer.x - ns2.ex, 2) + Math.pow(this.pointer.y - ns2.ey, 2));
+		var distOld = Math.sqrt(Math.pow(this.pointer.x - this.segment2.ex, 2) + Math.pow(this.pointer.y - this.segment2.ey, 2));
+		var dx = (ns2.ex - this.origin.x);
+		var dy = (ns2.ey - this.origin.y);
+		if(distNew < distOld && dy< this.BODY_HEIGHT*this.unit && (dy < 0 || Math.abs(dx) > this.unit*this.BODY_RADIUS)) {
+			this.segment1 = ns1;
+			this.segment2 = ns2;
+            this.segmentJoint.sx = ns2.sx;
+            this.segmentJoint.sy = ns2.sy;
+            this.segmentJoint.updateAngle(theta1 + ang);
+
+            this.angles[0] = -1 * ((theta1 - thdiff) * (180 / Math.PI));
+            this.angles[1] = 180 - (theta2 + thdiff) * (180 / Math.PI);
+		}
+	}
+
     function Log(elementId) {
         this.el = document.getElementById(elementId);
         this.open = false;
@@ -251,6 +462,7 @@
     function Manager(logElementId) {
         this.socket = null;
         this.joysticks = [];
+        this.arms = [];
 
         this.mustArriveIdIn = 0;
         this.mustArriveIdOut = 0;
@@ -264,6 +476,10 @@
 
     Manager.prototype.addJoystick = function(joy) {
         this.joysticks.push(joy);
+    }
+
+    Manager.prototype.addArm = function(arm) {
+        this.arms.push(arm);
     }
 
     Manager.prototype.start = function(address) {
@@ -305,6 +521,12 @@
                 })
             }
             this.socket.send(JSON.stringify({ "c": "joy", "data": data }))
+
+            data = [];
+            for(var i = 0; i < this.arms.length; ++i) {
+                data.push({ "a": this.arms[i].angles })
+            }
+            this.socket.send(JSON.stringify({ "c": "arm", "data": data }))
         }
 
         if(diff >= this.mustArriveTimer) {
@@ -371,10 +593,7 @@
     window.addEventListener("load", function(){
         var man = new Manager("log");
         man.addJoystick(new Joystick("joy0", "blue", "wasd"));
-        man.addJoystick(new Joystick("joy1", "red", "ijkl ", "FIRE!", function() {
-            man.flashBody();
-            man.sendMustArrive("fire", {});
-        }));
+        man.addArm(new Arm("arm0"));
 
         man.start("ws://localhost:9000");
     });
