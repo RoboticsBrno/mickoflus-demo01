@@ -30,11 +30,12 @@ void onPktReceived(rb::Protocol& protocol, void *cookie, const std::string& comm
     auto man = (rb::Manager*)cookie;
     if(command == "joy") {
         motors_handle_joysticks(man, pkt);
-    } else if(command == "arm") {
-        const rbjson::Array *data = pkt->getArray("data");
-        const rbjson::Array *angles = data->getObject(0)->getArray("a");
-        man->servoBus().set(0, angles->getDouble(0, 0), 130);
-        man->servoBus().set(1, angles->getDouble(1, 0), 130);
+    } else if(command == "arm0") {
+        const rbjson::Array *angles = pkt->getArray("a");
+        auto &bus = man->servoBus();
+        bus.set(0, angles->getDouble(0, 0), 100);
+        bus.set(1, angles->getDouble(1, 0), 100);
+        bus.set(2, angles->getDouble(2, 0), 120);
     }
 }
 
@@ -42,9 +43,10 @@ extern "C" void app_main() {
     // Initialize the robot manager
     rb::Manager man;
 
-    auto& servos = man.initServoBus(2);
+    auto& servos = man.initServoBus(3);
     servos.limit(0,  0_deg, 180_deg );
     servos.limit(1,  6_deg, 240_deg );
+    servos.limit(2, 0_deg, 180_deg);
 
     // Set the battery measuring coefficient.
     // Measure voltage at battery connector and

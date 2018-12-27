@@ -101,7 +101,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.6.8/nipplejs.min.js"></script>
-  <script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/222599/canvas-pointer.js?v=20150516"></script>
+  <script src="canvas-pointer.js"></script>
 
   <script type="text/javascript">
     'use strict';
@@ -238,8 +238,10 @@
         this.JOINT_ANGLE = -Math.PI/2;
         this.BODY_HEIGHT = 5;
         this.BODY_RADIUS = 8;
+        this.HAND_OFFSET = 7;
+        this.TOUCH_TARGET_SIZE = 13;
 
-        this.angles = [ 0, 180 ];
+        this.angles = [ 0, 180, 90 ];
 
         this.canvas = ge1doot.canvas(canvasId);
         this.canvas.resize = this.resize.bind(this);
@@ -249,20 +251,41 @@
         this.segment1 = new Segment();
         this.segment2 = new Segment();
         this.segmentJoint = new Segment();
+        this.segmentHand = new Segment();
 
         this.pointer = this.canvas.pointer;
-        this.clicked = false;
-        this.pointer.down = function() { this.clicked = true; }.bind(this)
-        this.pointer.up = function() { this.clicked = false; }.bind(this)
+        this.targets = [
+            { x: this.pointer.x, y: this.pointer.y },
+            { x: this.pointer.x, y: this.pointer.y },
+        ];
+
+        this.activeTarget = -1;
+        this.pointer.down = function() {
+            for(var i = 0; i < this.targets.length; ++i) {
+                var dist = Math.sqrt(Math.pow(this.pointer.x - this.targets[i].x, 2) + Math.pow(this.pointer.y - this.targets[i].y, 2));
+                if(dist <= this.TOUCH_TARGET_SIZE) {
+                    this.activeTarget = i;
+                    break;
+                }
+            }
+            if(this.activeTarget === -1) {
+                this.activeTarget = 0;
+            }
+            requestAnimationFrame(this.run.bind(this, this.activeTarget));
+        }.bind(this)
+        this.pointer.up = function() { this.activeTarget = -1; }.bind(this)
         this.pointer.move = function() {
-            if(this.clicked)
-                requestAnimationFrame(this.run.bind(this));
+            if(this.activeTarget !== -1) {
+                requestAnimationFrame(this.run.bind(this, this.activeTarget));
+            }
         }.bind(this)
 
         this.resize();
         this.pointer.x = this.origin.x;
         this.pointer.y = this.origin.y - (this.JOINT_OFFSET * this.unit);
         this.run();
+
+        this.touched = false;
     }
 
     Arm.prototype.resize = function() {
@@ -275,6 +298,7 @@
         this.segment1.length = length;
         this.segment2.length = length;
         this.segmentJoint.length = this.unit * this.JOINT_OFFSET;
+        this.segmentHand.length = this.unit * this.HAND_OFFSET;
 
         this.segment1.sx = this.origin.x;
 		this.segment1.sy = this.origin.y;
@@ -288,14 +312,30 @@
         this.segmentJoint.sx = this.segment2.sx;
         this.segmentJoint.sy = this.segment2.sy;
         this.segmentJoint.updateAngle(this.segmentJoint.angle);
+        this.segmentHand.sx = this.segment2.ex;
+        this.segmentHand.sy = this.segment2.ey;
+        this.segmentHand.updateAngle(this.segmentHand.angle);
         this.pointer.x = this.segment2.ex;
         this.pointer.y = this.segment2.ey;
 
         this.run();
     }
 
-    Arm.prototype.run = function() {
-        this.updateSegments();
+    Arm.prototype.run = function(activeTarget) {
+        switch(activeTarget) {
+        case 1:
+            this.updateHand(this.pointer);
+            break;
+        default:
+            this.updateSegments(this.pointer);
+            if(activeTarget === 0 && this.pointer.touchMode.length >= 2) {
+                this.updateHand({
+                    "x": this.pointer.touchMode[1].clientX - this.canvas.left,
+                    "y": this.pointer.touchMode[1].clientY - this.canvas.top,
+                })
+            }
+            break;
+        }
 
         var ctx = this.canvas.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -303,16 +343,22 @@
         this.drawSegment(this.segment1, "navy");
         this.drawSegment(this.segment2, "green");
         this.drawSegment(this.segmentJoint, "black", 3);
-
-        ctx.beginPath();
-        ctx.fillStyle = "red";
-        ctx.moveTo(this.segment2.ex, this.segment2.ey);
-        ctx.arc(this.segment2.ex, this.segment2.ey, 12, 0, 2 * Math.PI);
-        ctx.fill();
+        this.drawSegment(this.segmentHand, "brown", 2);
+        this.drawTouchTarget(this.segment2.ex, this.segment2.ey);
+        this.drawTouchTarget(this.segmentHand.ex, this.segmentHand.ey);
     }
 
     Arm.prototype.drawSegment = function(seg, color) {
         this.drawLine(seg.sx, seg.sy, seg.ex, seg.ey, color, 3, 6);
+    }
+
+    Arm.prototype.drawTouchTarget = function(x, y) {
+        var ctx = this.canvas.ctx;
+        ctx.beginPath();
+        ctx.fillStyle = "red";
+        ctx.moveTo(x, y);
+        ctx.arc(x, y, this.TOUCH_TARGET_SIZE, 0, 2 * Math.PI);
+        ctx.fill();
     }
 
     Arm.prototype.drawLine = function(x0, y0, x1, y1, color, width, dotRadius) {
@@ -351,11 +397,11 @@
 			return upperBound;
 	}
 
-	Arm.prototype.updateSegments = function() {
-		var angle, theta1, theta2, targetSqrDist;
+	Arm.prototype.updateSegments = function(t) {
+        var angle, theta1, theta2, targetSqrDist;
 
-		var ix = this.pointer.x - this.origin.x;
-		var iy = Math.min(this.pointer.y - this.origin.y, this.unit*this.BODY_HEIGHT)
+		var ix = t.x - this.origin.x;
+		var iy = Math.min(t.y - this.origin.y, this.unit*this.BODY_HEIGHT)
 
 		if(iy > 0 && Math.abs(ix) < this.BODY_RADIUS*this.unit)
 			ix = this.BODY_RADIUS*this.unit*Math.sign(ix)
@@ -398,8 +444,8 @@
 
         ns2.updateAngle(theta1 + theta2);
 
-		var distNew = Math.sqrt(Math.pow(this.pointer.x - ns2.ex, 2) + Math.pow(this.pointer.y - ns2.ey, 2));
-		var distOld = Math.sqrt(Math.pow(this.pointer.x - this.segment2.ex, 2) + Math.pow(this.pointer.y - this.segment2.ey, 2));
+		var distNew = Math.sqrt(Math.pow(t.x - ns2.ex, 2) + Math.pow(t.y - ns2.ey, 2));
+		var distOld = Math.sqrt(Math.pow(t.x - this.segment2.ex, 2) + Math.pow(t.y - this.segment2.ey, 2));
 		var dx = (ns2.ex - this.origin.x);
 		var dy = (ns2.ey - this.origin.y);
 		if(distNew < distOld && dy< this.BODY_HEIGHT*this.unit && (dy < 0 || Math.abs(dx) > this.unit*this.BODY_RADIUS)) {
@@ -409,10 +455,47 @@
             this.segmentJoint.sy = ns2.sy;
             this.segmentJoint.updateAngle(theta1 + ang);
 
+            this.segmentHand.sx = ns2.ex;
+            this.segmentHand.sy = ns2.ey;
+            this.segmentHand.updateAngle(this.segmentHand.angle);
+
             this.angles[0] = -1 * ((theta1 - thdiff) * (180 / Math.PI));
             this.angles[1] = 180 - (theta2 + thdiff) * (180 / Math.PI);
-		}
-	}
+            this.touched = true;
+
+            this.contraintHand();
+        }
+
+        this.targets[0].x = this.segment2.ex;
+        this.targets[0].y = this.segment2.ey;
+        this.targets[1].x = this.segmentHand.ex;
+        this.targets[1].y = this.segmentHand.ey;
+    }
+
+    Arm.prototype.updateHand = function(t) {
+		var ix = t.x - this.segment2.ex;
+        var iy = t.y - this.segment2.ey;
+
+        var ang = Math.atan2(iy, ix);
+        this.segmentHand.updateAngle(ang);
+
+        this.contraintHand();
+
+        this.targets[1].x = this.segmentHand.ex;
+        this.targets[1].y = this.segmentHand.ey;
+        this.touched = true;
+    }
+
+    Arm.prototype.contraintHand = function() {
+        var d = (this.segmentHand.angle - this.segment2.angle);
+        if(d > Math.PI*2) d -= Math.PI*2;
+        else if(d < -Math.PI*2) d += Math.PI*2;
+
+        d = this.constraint(d, -Math.PI/2, Math.PI/2);
+        this.segmentHand.updateAngle(this.segment2.angle + d);
+
+        this.angles[2] = 90 - d * (180 / Math.PI)
+    }
 
     function Log(elementId) {
         this.el = document.getElementById(elementId);
@@ -462,7 +545,7 @@
     function Manager(logElementId) {
         this.socket = null;
         this.joysticks = [];
-        this.arms = [];
+        this.arm = null;
 
         this.mustArriveIdIn = 0;
         this.mustArriveIdOut = 0;
@@ -478,8 +561,8 @@
         this.joysticks.push(joy);
     }
 
-    Manager.prototype.addArm = function(arm) {
-        this.arms.push(arm);
+    Manager.prototype.setArm = function(arm) {
+        this.arm = arm;
     }
 
     Manager.prototype.start = function(address) {
@@ -522,11 +605,9 @@
             }
             this.socket.send(JSON.stringify({ "c": "joy", "data": data }))
 
-            data = [];
-            for(var i = 0; i < this.arms.length; ++i) {
-                data.push({ "a": this.arms[i].angles })
+            if(this.arm && this.arm.touched) {
+                this.socket.send(JSON.stringify({ "c": "arm0", "a": this.arm.angles }));
             }
-            this.socket.send(JSON.stringify({ "c": "arm", "data": data }))
         }
 
         if(diff >= this.mustArriveTimer) {
@@ -593,7 +674,7 @@
     window.addEventListener("load", function(){
         var man = new Manager("log");
         man.addJoystick(new Joystick("joy0", "blue", "wasd"));
-        man.addArm(new Arm("arm0"));
+        man.setArm(new Arm("arm0"));
 
         man.start("ws://localhost:9000");
     });
