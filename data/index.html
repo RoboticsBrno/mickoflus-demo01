@@ -241,7 +241,7 @@
         this.JOINT_OFFSET = 3.2;
         this.JOINT_ANGLE = -Math.PI/2;
         this.BODY_HEIGHT = 5;
-        this.BODY_RADIUS = 8;
+        this.BODY_RADIUS = 12;
         this.HAND_OFFSET = 7;
         this.TOUCH_TARGET_SIZE = 13;
 
@@ -280,7 +280,7 @@
         this.pointer.up = function() {
             if(this.activeTarget !== -1) {
                 this.activeTarget = -1;
-                requestAnimationFrame(this.run.bind(this));
+                requestAnimationFrame(this.run.bind(this, -1));
             }
         }.bind(this)
         this.pointer.move = function() {
@@ -298,7 +298,7 @@
     }
 
     Arm.prototype.resize = function() {
-        this.unit = Math.min(this.canvas.width/2, this.canvas.height *0.7) / (this.ARM_LEN*2.2)
+        this.unit = Math.min(this.canvas.width/2, this.canvas.height *0.7) / (this.ARM_LEN*2.4)
 
         this.origin.x = this.canvas.width / 2;
         this.origin.y = this.canvas.height * 0.8;
@@ -334,8 +334,15 @@
         var ctx = this.canvas.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        var w = this.unit*this.BODY_RADIUS*2;
+        var h = this.unit*this.BODY_HEIGHT;
+        ctx.fillStyle = "#C8A165";
+        ctx.fillRect(this.origin.x - w/2, this.origin.y+6, w, h);
+
         var pointers = [];
         switch(activeTarget) {
+        case -1:
+            break;
         case 1:
             this.updateHand(this.pointer);
             pointers.push(this.drawPointer.bind(this, this.segment2.end(), this.pointer, "rgba(0, 0, 255, 0.5)"))
