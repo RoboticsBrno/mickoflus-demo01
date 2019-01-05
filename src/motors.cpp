@@ -3,14 +3,6 @@
 
 #include "motors.hpp"
 
-static int iabs(int x) {
-    return x >= 0 ? x : -x;
-}
-
-static float scale_decel(float x) {
-    return (1.f - (1.f - x) * (1.f - x));
-}
-
 static int scale_range(float x, float omin, float omax, float nmin, float nmax) {
     return ((float(x) - omin) / (omax - omin)) * (nmax - nmin) - nmax;
 }

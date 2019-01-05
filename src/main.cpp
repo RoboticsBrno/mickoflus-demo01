@@ -15,9 +15,6 @@
 
 #include "motors.hpp"
 
-using namespace std::chrono_literals; // to use ms/s/h etc.
-#include "lx16a.hpp"
-
 // CHANGE THESE so you can find the robot in the Android app
 #define OWNER "FrantaFlinta"
 #define NAME "FlusMcFlusy"
@@ -81,9 +78,6 @@ extern "C" void app_main() {
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     printf("\n\nBATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n\n\n", batt.raw(), batt.coef(), batt.voltageMv());
-
-    //servos.set(0, 180, 100);
-    //servos.set(1, 0, 100);
 
     int i = 0;
     while(true) {
