@@ -11,10 +11,10 @@ static int scale_motors(float val) {
     return scale_range(val, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100.f, 100.f);
 }
 
-void motors_handle_joysticks(rb::Manager *man, rbjson::Object *pkt) {
+void motors_handle_joysticks(rb::Manager& man, rbjson::Object *pkt) {
     const rbjson::Array *data = pkt->getArray("data");
-
-    auto builder = man->setMotors();
+        
+    auto builder = man.setMotors();
 
     // Drive
     {

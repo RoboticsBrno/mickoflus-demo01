@@ -20,27 +20,14 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "domov"
-#define WIFI_PASSWORD "Monty2aTara"
-
-void onPktReceived(rb::Protocol& protocol, void *cookie, const std::string& command, rbjson::Object *pkt) {
-    auto man = (rb::Manager*)cookie;
-    if(command == "joy") {
-        motors_handle_joysticks(man, pkt);
-    } else if(command == "arm0") {
-        const rbjson::Array *angles = pkt->getArray("a");
-        auto &bus = man->servoBus();
-        bus.set(0, angles->getDouble(0, 0), 100);
-        bus.set(1, angles->getDouble(1, 0), 100);
-        bus.set(2, angles->getDouble(2, 0), 120);
-    }
-}
+#define WIFI_NAME "Mickoland"
+#define WIFI_PASSWORD "flusflus"
 
 extern "C" void app_main() {
     // Initialize the robot manager
     rb::Manager man;
 
-    auto& servos = man.initServoBus(3);
+    auto& servos = man.initSmartServoBus(3);
     servos.limit(0,  0_deg, 180_deg );
     servos.limit(1,  6_deg, 240_deg );
     servos.limit(2, 0_deg, 180_deg);
@@ -71,7 +58,18 @@ extern "C" void app_main() {
         .set();
 
     // Initialize the communication protocol
-    rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &man);
+    rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
+        if(command == "joy") {
+            motors_handle_joysticks(man, pkt);
+        } else if(command == "arm0") {
+            const rbjson::Array *angles = pkt->getArray("a");
+            auto &bus = man.servoBus();
+            bus.set(0, angles->getDouble(0, 0), 100);
+            bus.set(1, angles->getDouble(1, 0), 100);
+            bus.set(2, angles->getDouble(2, 0), 120);
+        }
+    });
+
     prot.start();
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
