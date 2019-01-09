@@ -23,17 +23,6 @@
 #define WIFI_NAME "Mickoland"
 #define WIFI_PASSWORD "flusflus"
 
-
-void onPktReceived(rb::Protocol& protocol, void *cookie, const std::string& command, rbjson::Object *pkt) {
-    auto man = (rb::Manager*)cookie;
-    if(command == "joy") {
-        motors_handle_joysticks(man, pkt);
-    } else if(command == "fire") {
-        printf("\n\nFIRE THE MISSILESS\n\n");
-        motors_fire_gun(man);
-    }
-}
-
 extern "C" void app_main() {
     // Initialize the robot manager
     rb::Manager man;
@@ -66,7 +55,15 @@ extern "C" void app_main() {
         .set();
 
     // Initialize the communication protocol
-    rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, &onPktReceived, &man);
+    rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
+        if(command == "joy") {
+            motors_handle_joysticks(man, pkt);
+        } else if(command == "fire") {
+            printf("\n\nFIRE THE MISSILESS\n\n");
+            motors_fire_gun(man);
+        }
+    });
+
     prot.start();
 
     printf("%s's mickoflus '%s' started!\n", OWNER, NAME);

@@ -23,10 +23,10 @@ static int scale_motors(float val) {
     return scale_range(val, RBPROTOCOL_AXIS_MIN, RBPROTOCOL_AXIS_MAX, -100.f, 100.f);
 }
 
-void motors_handle_joysticks(rb::Manager *man, rbjson::Object *pkt) {
+void motors_handle_joysticks(rb::Manager& man, rbjson::Object *pkt) {
     const rbjson::Array *data = pkt->getArray("data");
         
-    auto builder = man->setMotors();
+    auto builder = man.setMotors();
 
     // Drive
     {
@@ -75,14 +75,10 @@ void motors_handle_joysticks(rb::Manager *man, rbjson::Object *pkt) {
     builder.set();
 }
 
-
-static bool turnOffGun(void *cookie) {
-    auto man = (rb::Manager*)cookie;
-    man->setMotors().power(MOTOR_GUN, 0).set();
-    return false;
-}
-
-void motors_fire_gun(rb::Manager *man) {
-    man->setMotors().power(MOTOR_GUN, 100).set();
-    man->schedule(3000, &turnOffGun, man);
+void motors_fire_gun(rb::Manager& man) {
+    man.setMotors().power(MOTOR_GUN, 100).set();
+    man.schedule(3000, [&]()->bool {
+        man.setMotors().power(MOTOR_GUN, 0).set();
+        return false;
+    });
 }
