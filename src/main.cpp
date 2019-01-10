@@ -22,8 +22,8 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "Mickoland"
-#define WIFI_PASSWORD "flusflus"
+#define WIFI_NAME "Technika"
+#define WIFI_PASSWORD "materidouska"
 
 extern "C" void app_main() {
     // Initialize the robot manager
@@ -53,7 +53,7 @@ extern "C" void app_main() {
     // Measure voltage at battery connector and
     // coef = voltageMeasureAtBatteriesInMilliVolts / raw
     auto& batt = man.battery();
-    batt.setCoef(10);
+    batt.setCoef(8.48f);
 
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
@@ -81,8 +81,8 @@ extern "C" void app_main() {
         } else if(command == "arm0") {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
-            bus.set(0, angles->getDouble(0, 0), 100);
-            bus.set(1, angles->getDouble(1, 0), 100);
+            bus.set(0, angles->getDouble(0, 0), 130);
+            bus.set(1, angles->getDouble(1, 0), 130);
             bus.set(2, angles->getDouble(2, 0), 120);
         }
     });
