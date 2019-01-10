@@ -37,7 +37,7 @@ extern "C" void app_main() {
     {
         gpio_config_t io_conf;
         io_conf.intr_type = GPIO_INTR_DISABLE;
-        io_conf.pin_bit_mask = (1ULL << 35);
+        io_conf.pin_bit_mask = (1ULL << 26);
         io_conf.mode = GPIO_MODE_OUTPUT;
         io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
         io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
@@ -45,9 +45,7 @@ extern "C" void app_main() {
     }
 
     Servo servo_claw;
-    servo_claw.attach(35, 2);
-
-    servo_claw.write(90);
+    servo_claw.attach(26);
 
     // Set the battery measuring coefficient.
     // Measure voltage at battery connector and
@@ -84,6 +82,7 @@ extern "C" void app_main() {
             bus.set(0, angles->getDouble(0, 0), 130);
             bus.set(1, angles->getDouble(1, 0), 130);
             bus.set(2, angles->getDouble(2, 0), 120);
+            servo_claw.write( angles->getDouble(2, 0));
         }
     });
 
