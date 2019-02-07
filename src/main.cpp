@@ -25,13 +25,18 @@
 #define WIFI_NAME "Technika"
 #define WIFI_PASSWORD "materidouska"
 
+
+static int iabs(int x) {
+    return x >= 0 ? x : -x;
+}
+
 extern "C" void app_main() {
     // Initialize the robot manager
     rb::Manager man;
 
     auto& servos = man.initSmartServoBus(3);
-    servos.limit(0,  0_deg, 180_deg );
-    servos.limit(1,  6_deg, 240_deg );
+    //servos.limit(0,  0_deg, 180_deg );
+    servos.limit(0, 140_deg, 240_deg );
     servos.limit(2, 0_deg, 180_deg);
 
     {
@@ -51,12 +56,12 @@ extern "C" void app_main() {
     // Measure voltage at battery connector and
     // coef = voltageMeasureAtBatteriesInMilliVolts / raw
     auto& batt = man.battery();
-    batt.setCoef(8.48f);
+    batt.setCoef(9.185f);
 
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
     // else create an AP.
-    if(man.expander().digitalRead(rb::SW1) != 0) {
+    if(man.expander().digitalRead(rb::SW1) == 0) {
         man.leds().yellow();
         rb::WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
     } else {
@@ -68,9 +73,14 @@ extern "C" void app_main() {
 
     // Set motor power limits
     man.setMotors()
-        .pwmMaxPercent(MOTOR_LEFT, 70)  // left wheel
-        .pwmMaxPercent(MOTOR_RIGHT, 70)  // right wheel
+        .pwmMaxPercent(MOTOR_LEFT, 100)
+        .pwmMaxPercent(MOTOR_RIGHT, 100)
+        .pwmMaxPercent(MOTOR_TURRET_ROTATION, 30)
+        .pwmMaxPercent(rb::MotorId::M2, 100)
         .set();
+
+    bool isGrabbing = false;
+    int baseTarget = 0;
 
     // Initialize the communication protocol
     rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
@@ -79,10 +89,13 @@ extern "C" void app_main() {
         } else if(command == "arm0") {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
-            bus.set(0, angles->getDouble(0, 0), 130);
-            bus.set(1, angles->getDouble(1, 0), 130);
-            bus.set(2, angles->getDouble(2, 0), 120);
-            servo_claw.write( angles->getDouble(2, 0));
+            //printf("%f %f\n", angles->getDouble(1, 0), angles->getDouble(2, 0));
+            baseTarget = 180 - angles->getDouble(0, 0);
+            bus.set(0, angles->getDouble(1, 0), 130, 0.07f);
+            bus.set(2, angles->getDouble(2, 0), 130, 0.07f);
+        } else if(command == "grab") {
+            servo_claw.write(isGrabbing ? 180 : 90);
+            isGrabbing = !isGrabbing;
         }
     });
 
@@ -92,6 +105,35 @@ extern "C" void app_main() {
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     printf("\n\nBATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n\n\n", batt.raw(), batt.coef(), batt.voltageMv());
+
+
+    /*adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_DB_6);
+
+    static const int ADC_SAMPLES = 8;
+    man.schedule(10, [&]() -> bool {
+        uint32_t adc_reading = 0;
+        for (int i = 0; i < ADC_SAMPLES; i++) {
+            adc_reading += adc1_get_raw(ADC1_CHANNEL_5);
+        }
+        adc_reading /= ADC_SAMPLES;
+
+        int cur = float(adc_reading)/11.372f;
+        //printf("%u %.1f %.1f\n", adc_reading, cur, baseTarget);
+        const int diff = iabs(cur - baseTarget);
+        int pwr = 0;
+        if(diff > 100) {
+            pwr = 100;
+        } else if(diff > 20) {
+            pwr = 100;
+        } else if(diff > 5) {
+            pwr = 80;
+        }
+        if(baseTarget < cur)
+            pwr = -pwr;
+        printf("set %d %d %d\n", cur, baseTarget, pwr);
+        man.setMotors().power(rb::MotorId::M2, pwr).set();
+        return true;
+    });*/
 
     int i = 0;
     while(true) {

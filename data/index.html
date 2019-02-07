@@ -25,8 +25,11 @@
       width: 100%;
       height: 40%;
       background-color: #eee;
-      position: absolute;
-      left: 0;
+  }
+
+  #joy0 {
+    right: 0px;
+    bottom: 0px;
   }
 
   @media all and (min-width: 400px) {
@@ -42,29 +45,13 @@
     }
   }
 
-  @media all and (orientation:portrait) {
-    #joy0 {
-      right: 0px;
-      bottom: 25px;
-    }
-    @media all and (max-width: 580px) {
-      #joy0 {
-        margin-left: auto;
-        margin-right: auto;
-        left: 0px;
-        right: 0px;
-      }
-    }
-  }
   @media all and (orientation:landscape) {
-    #joy0 {
-      right: 0px;
-      bottom: 0px;
-    }
     #arm0 {
       width: 50%;
-      height: calc(100% - 106px);
+      height: calc(100% - 46px);
       bottom: 0;
+      position: absolute;
+      left: 0;
     }
   }
 
@@ -79,7 +66,7 @@
     overflow-y: scroll;
   }
   .log-short {
-    height: 100px;
+    height: 40px;
   }
   .log-full {
     height: 100%;
@@ -97,10 +84,10 @@
   <canvas id="arm0"></canvas>
 
   <div id="joy0" class="joy"> </div>
-
+  <div id="joy1" class="joy"> </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.6.8/nipplejs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.7.3/nipplejs.min.js"></script>
   <script src="canvas-pointer.js"></script>
 
   <script type="text/javascript">
@@ -130,14 +117,17 @@
             },
             restOpacity: 0.9,
             fadeTime: 0,
+            lockX: !!buttonText,
         });
 
         this.joy = this.manager.get(this.manager.id);
 
         if(buttonText) {
             var nipple = this.joy.ui.front;
-            nipple.innerHTML = "FIRE!"
+            nipple.innerHTML = buttonText;
             nipple.style.fontWeight = "bold";
+            nipple.style.fontFamily = "Arial, Helvetica, sans-serif";
+            nipple.style.color = "white";
             nipple.style.textAlign = "center";
             nipple.style.verticalAlign = "middle";
             nipple.style.lineHeight = nipple.style.height;
@@ -237,10 +227,11 @@
     }
 
     function Arm(canvasId) {
-        this.ARM_LEN = 16;
-        this.JOINT_OFFSET = 3.2;
-        this.JOINT_ANGLE = -Math.PI/2;
-        this.BODY_HEIGHT = 5;
+        this.ARM_LEN = 14;
+        this.JOINT_OFFSET = 4.0;
+        this.JOINT_ANGLE = -Math.PI/2 + -Math.PI/4;
+        this.JOIN_RESULT_OFFSET = 50;
+        this.BODY_HEIGHT = 6;
         this.BODY_RADIUS = 12;
         this.HAND_OFFSET = 7;
         this.TOUCH_TARGET_SIZE = 13;
@@ -465,7 +456,8 @@
 
         var ang = this.JOINT_ANGLE - Math.atan(this.segmentJoint.len/ns1.len)
 
-        theta1 = this.constraint(Math.atan2(iy, ix) - Math.acos(angle), -Math.PI, 0);
+        //theta1 = this.constraint(Math.atan2(iy, ix) - Math.acos(angle), -Math.PI, 0);
+        theta1 = this.constraint(Math.atan2(iy, ix) - Math.acos(angle), -Math.PI + 0.65, -Math.PI + 0.65);
 
         var thdiff = Math.atan(this.segmentJoint.len/ns1.len)
         if(theta1 - thdiff < -Math.PI) {
@@ -483,7 +475,8 @@
             (targetSqrDist - ns1.len2 - ns2.len2) / (2 * ns1.len * ns2.len)
         ));
 
-        theta2 = this.constraint(Math.acos(angle), -1.06, Math.PI-thdiff)
+        //theta2 = this.constraint(Math.acos(angle), -1.06, Math.PI-thdiff)
+        theta2 = this.constraint(Math.acos(angle), Math.PI-thdiff-Math.PI/2, Math.PI-thdiff)
 
         ns2.updateAngle(theta1 + theta2);
 
@@ -503,7 +496,7 @@
             this.segmentHand.updateAngle(this.segmentHand.angle);
 
             this.angles[0] = -1 * ((theta1 - thdiff) * (180 / Math.PI));
-            this.angles[1] = 180 - (theta2 + thdiff) * (180 / Math.PI);
+            this.angles[1] = (theta2 + thdiff) * (180 / Math.PI) + this.JOIN_RESULT_OFFSET;
             this.touched = true;
 
             this.contraintHand();
@@ -544,14 +537,19 @@
         this.el = document.getElementById(elementId);
         this.open = false;
         this.isTouched = false;
+        this.touchStart = 0;
 
         this.el.addEventListener("click", this.onClick.bind(this));
 
-        this.el.addEventListener("touchstart", function() {
+        this.el.addEventListener("touchstart", function(ev) {
             this.isTouched = true;
+            this.touchStart = ev.timeStamp;
         }.bind(this));
-        this.el.addEventListener("touchend", function() {
+        this.el.addEventListener("touchend", function(ev) {
             this.isTouched = false;
+            if(ev.timeStamp - this.touchStart < 400) {
+                this.onClick();
+            }
         }.bind(this));
 
         this.scrollToBottom();
@@ -717,6 +715,10 @@
     window.addEventListener("load", function(){
         var man = new Manager("log");
         man.addJoystick(new Joystick("joy0", "blue", "wasd"));
+        man.addJoystick(new Joystick("joy1", "red", "ijkl ", "Grab", function() {
+            man.flashBody();
+            man.sendMustArrive("grab", {});
+        }));
         man.setArm(new Arm("arm0"));
 
         man.start("ws://localhost:9000");
