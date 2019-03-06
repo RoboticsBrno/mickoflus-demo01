@@ -1,4 +1,4 @@
-# Mickoflus-demo01
+# Mickoflus-demo01 [![Build Status](https://travis-ci.org/RoboticsBrno/mickoflus-demo01.svg?branch=master)](https://travis-ci.org/RoboticsBrno/mickoflus-demo01)
 
 [English version follows]
 
