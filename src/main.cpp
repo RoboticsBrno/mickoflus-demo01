@@ -23,7 +23,7 @@
 #define WIFI_NAME "Mickoland"
 #define WIFI_PASSWORD "flusflus"
 
-extern "C" void app_main() {
+void setup() {
     // Initialize the robot manager
     rb::Manager man;
 
@@ -79,4 +79,8 @@ extern "C" void app_main() {
             prot.send_log("Tick #%d, battery at %d%%, %dmv\n", i++, batt.pct(), batt.voltageMv());
         }
     }
+}
+
+void loop() {
+
 }
