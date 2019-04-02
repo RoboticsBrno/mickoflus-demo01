@@ -9,10 +9,15 @@ function clampAng(val) {
     return val;
 }
 
+function deg(rad) {
+    return rad * (180.0/Math.PI);
+}
+
 function Bone(length, color) {
     this.relAngle = -Math.PI/2;
     this.length = length;
     this.color = color;
+    this.calcServoAng = null;
 
     this.x = 0;
     this.y = 0;
@@ -40,6 +45,7 @@ Bone.prototype.updatePos = function(prevBone, unit) {
 function Arm(canvasId) {
     this.BODY_HEIGHT = 6;
     this.BODY_RADIUS = 12;
+    this.ARM_BASE_HEIGHT = 5;
     this.TOUCH_TARGET_SIZE = 4;
     this.ARM_SEGMENTS = [ 11, 10, 8 ];
     this.ARM_COLORS = [ "blue", "orange", "green" ];
@@ -59,6 +65,18 @@ function Arm(canvasId) {
 
     this.bones[0].relMin = -Math.PI;
     this.bones[0].relMax = 0;
+
+    this.bones[0].calcServoAng = function(absAng) {
+        return (absAng !== undefined) ? absAng : this.angle;
+    }.bind(this.bones[0]);
+
+    this.bones[1].calcServoAng = function(absAng) {
+        return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
+    }.bind(this.bones[1]);
+
+    this.bones[2].calcServoAng = function(absAng) {
+        return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
+    }.bind(this.bones[2]);
 
     this.canvas = ge1doot.canvas(canvasId);
     this.canvas.resize = this.resize.bind(this);
@@ -167,9 +185,9 @@ Arm.prototype.run = function() {
         if(res == 0) {
             continue;
         } else if(res == -1) {
-            for(var i = 0; i < this.bones.length; ++i) {
+            /*for(var i = 0; i < this.bones.length; ++i) {
                 this.bones[i].relAngle = origAngles[i];
-            }
+            }*/
             console.log("FAILED");
         }
         break;
@@ -181,7 +199,7 @@ Arm.prototype.run = function() {
     var h = this.unit*this.BODY_HEIGHT;
 
     ctx.fillStyle = "#C8A165";
-    ctx.fillRect(-w/2, 6, w, h);
+    ctx.fillRect(-w/2, this.ARM_BASE_HEIGHT*this.unit, w, h);
 
     for(var i = 0; i < this.bones.length; ++i) {
         var s = this.bones[i];
@@ -189,13 +207,34 @@ Arm.prototype.run = function() {
         ctx.save();
         ctx.rotate(s.relAngle);
         this.drawLine(0, 0, s.length*this.unit, 0, s.color, 3, 6);
-        
-        
+
+
         ctx.translate(s.length*this.unit, 0);
     }
 
     for(var i = 0; i < this.bones.length; ++i) {
         ctx.restore();
+    }
+
+    ctx.font = '18px monospace';
+    ctx.fillStyle = "black"
+    var y = 60;
+    for(var i = 0; i < this.bones.length; ++i) {
+        var b = this.bones[i];
+
+        ctx.save()
+        ctx.rotate(b.calcServoAng());
+        this.drawLine(0, 0, 5*this.unit, 0, b.color, 2, 0);
+        ctx.restore();
+
+
+        ctx.fillText((b.angle >= 0 ? " " : "") + b.angle.toFixed(2), -225, y);
+        ctx.fillText((b.angle >= 0 ? " " : "") + deg(b.angle).toFixed(2), -150, y);
+        ctx.fillText((b.relAngle >= 0 ? " " : "") + b.relAngle.toFixed(2), -75, y);
+        ctx.fillText((b.relAngle >= 0 ? " " : "") + deg(b.relAngle).toFixed(2), 0, y);
+        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + b.calcServoAng().toFixed(2), 75, y);
+        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + deg(b.calcServoAng()).toFixed(2), 150, y);
+        y += 20;
     }
 
 /*    for(var i = 0; i < this.bones.length; ++i) {
@@ -230,6 +269,9 @@ Arm.prototype.solve = function(targetX, targetY) {
         prev = this.bones[i];
     }
 
+    if(targetY > 0)
+        targetY = 0;
+
     var endX = prev.x;
     var endY = prev.y;
 
@@ -248,7 +290,7 @@ Arm.prototype.solve = function(targetX, targetY) {
         var curToEndX = endX - bx;
         var curToEndY = endY - by;
         var curToEndMag = Math.sqrt(curToEndX*curToEndX + curToEndY*curToEndY);
-  
+
         // Get the vector from the current bone to the target position.
         var curToTargetX = targetX - bx;
         var curToTargetY = targetY - by;
@@ -279,14 +321,14 @@ Arm.prototype.solve = function(targetX, targetY) {
 
         // Rotate the current bone in local space (this value is output to the user)
         // b.angle = overflow(b.angle + rotAng, Math.PI*2);
-        rotAng = b.rotate(i == 0 ? null : this.bones[i-1], rotAng)
+        rotAng = this.rotateArm(this.bones, i, rotAng)
         cosRotAng = Math.cos(rotAng)
         sinRotAng = Math.sin(rotAng)
-  
+
         // Rotate the end effector position.
         endX = bx + cosRotAng*curToEndX - sinRotAng*curToEndY;
         endY = by + sinRotAng*curToEndX + cosRotAng*curToEndY;
-  
+
         // Check for termination
         var endToTargetX = (targetX-endX);
         var endToTargetY = (targetY-endY);
@@ -294,7 +336,7 @@ Arm.prototype.solve = function(targetX, targetY) {
             // We found a valid solution.
             return 1;
         }
-  
+
         // Track if the arc length that we moved the end effector was
         // a nontrivial distance.
         if(!modifiedBones && Math.abs(rotAng)*curToEndMag > 0.000001)
@@ -304,5 +346,57 @@ Arm.prototype.solve = function(targetX, targetY) {
     if(modifiedBones)
         return 0;
     return -1;
+}
+
+Arm.prototype.rotateArm = function(bones, idx, rotAng) {
+    var me = bones[idx];
+
+    var base = bones[0];
+    if(base.angle < -2) {
+        // limit back
+    }
+
+
+    var newRelAng = clampAng(me.relAngle + rotAng)
+    var _min = me.relMin;
+    var _max = me.relMax;
+    if(newRelAng < _min) {
+        newRelAng = _min;
+    } else if(newRelAng > _max) {
+        newRelAng = _max;
+    }
+
+    var res = clampAng(newRelAng - me.relAngle);
+
+    var x = 0;
+    var y = 0;
+    var prevAng = 0;
+    for(var i = 0; i < bones.length; ++i) {
+        var b = bones[i];
+        var angle = b.relAngle;
+        if(idx == i) {
+            angle += res;
+        }
+        angle = clampAng(prevAng + angle);
+
+        var nx = x + (Math.cos(angle) * b.length * this.unit);
+        var ny = y + (Math.sin(angle) * b.length * this.unit);
+
+        if(ny > 10) {
+            return 0;
+        }
+
+        var servo = b.calcServoAng(angle);
+        if(servo < 2.2 && servo > 0) {
+            return 0;
+        }
+
+        x = nx;
+        y = ny;
+        prevAng = angle;
+    }
+
+    me.relAngle = newRelAng;
+    return res;
 }
 
