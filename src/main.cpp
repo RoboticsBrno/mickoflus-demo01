@@ -95,12 +95,12 @@ void setup() {
         } else if(command == "arm0") {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
-            //printf("%f %f\n", angles->getDouble(1, 0), angles->getDouble(2, 0));
-            //baseTarget = 180 - angles->getDouble(0, 0);
-            //bus.set(0, angles->getDouble(1, 0), 130, 0.07f);
-            //bus.set(2, angles->getDouble(2, 0), 130, 0.07f);
+            //printf("%f %f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0), angles->getDouble(2, 0));
+            bus.set(1, angles->getDouble(0, 0), 130, 0.07f);
+            bus.set(2, angles->getDouble(1, 0), 130, 0.07f);
+            bus.set(0, angles->getDouble(2, 0), 130, 0.07f);
         } else if(command == "grab") {
-            servo_claw.write(isGrabbing ? 180 : 90);
+            servo_claw.write(isGrabbing ? 170 : 00);
             isGrabbing = !isGrabbing;
         }
     });

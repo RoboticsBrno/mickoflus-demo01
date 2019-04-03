@@ -119,6 +119,7 @@
             restOpacity: 0.9,
             fadeTime: 0,
             lockX: !!buttonText,
+            lockY: !!buttonText,
         });
 
         this.joy = this.manager.get(this.manager.id);
@@ -383,7 +384,7 @@
             man.flashBody();
             man.sendMustArrive("grab", {});
         }));
-        man.setArm(new Arm("arm0"));
+        man.setArm(new Arm("arm0", man));
 
         man.start("ws://localhost:9000");
     });

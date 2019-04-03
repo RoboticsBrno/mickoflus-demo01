@@ -18,6 +18,7 @@ function Bone(length, color) {
     this.length = length;
     this.color = color;
     this.calcServoAng = null;
+    this.mapToServoAng = null;
 
     this.x = 0;
     this.y = 0;
@@ -47,14 +48,16 @@ function Arm(canvasId) {
     this.BODY_RADIUS = 12;
     this.ARM_BASE_HEIGHT = 5;
     this.TOUCH_TARGET_SIZE = 4;
-    this.ARM_SEGMENTS = [ 11, 10, 8 ];
+    this.ARM_SEGMENTS = [ 11, 10, 9 ];
     this.ARM_COLORS = [ "blue", "orange", "green" ];
     this.ARM_TOTAL_LEN = 0;
 
     this.bones = [];
+    this.angles = [];
     for(var i = 0; i < this.ARM_SEGMENTS.length; ++i) {
         this.ARM_TOTAL_LEN += this.ARM_SEGMENTS[i];
         this.bones.push(new Bone(this.ARM_SEGMENTS[i], this.ARM_COLORS[i]));
+        this.angles.push(0);
     }
 
     this.bones[2].relMin = -Math.PI/8;
@@ -69,14 +72,23 @@ function Arm(canvasId) {
     this.bones[0].calcServoAng = function(absAng) {
         return (absAng !== undefined) ? absAng : this.angle;
     }.bind(this.bones[0]);
+    this.bones[0].mapToServoAng = function(absAng) {
+        return absAng * -1;
+    }
 
     this.bones[1].calcServoAng = function(absAng) {
         return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
     }.bind(this.bones[1]);
+    this.bones[1].mapToServoAng = function(absAng) {
+        return Math.PI - (clampAng(absAng + Math.PI/2) * -1);
+    }
 
     this.bones[2].calcServoAng = function(absAng) {
         return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
     }.bind(this.bones[2]);
+    this.bones[2].mapToServoAng = function(absAng) {
+        return (clampAng(absAng + Math.PI/2) * -1) + 1.39626;
+    }
 
     this.canvas = ge1doot.canvas(canvasId);
     this.canvas.resize = this.resize.bind(this);
@@ -85,14 +97,19 @@ function Arm(canvasId) {
     this.origin = {x:0, y:0}
     this.pointer = this.canvas.pointer;
 
+    this.touched = false;
+
     this.pointer.down = function() {
-        requestAnimationFrame(this.run.bind(this));
+        this.run();
+        this.touched = true;
     }.bind(this);
     this.pointer.up = function() {
+        this.touched = false;
         requestAnimationFrame(this.run.bind(this));
     }.bind(this);
     this.pointer.move = function() {
-        requestAnimationFrame(this.run.bind(this));
+        if(this.touched)
+            requestAnimationFrame(this.run.bind(this));
     }.bind(this);
 
     this.resize();
@@ -104,9 +121,9 @@ function Arm(canvasId) {
 }
 
 Arm.prototype.resize = function() {
-    this.unit = Math.min(this.canvas.width/2, this.canvas.height *0.7) / (this.ARM_TOTAL_LEN*2.4)
+    this.unit = Math.min(this.canvas.width*0.6, this.canvas.height *0.8) / this.ARM_TOTAL_LEN;
 
-    this.origin.x = this.canvas.width / 2;
+    this.origin.x = this.BODY_RADIUS*this.unit;
     this.origin.y = this.canvas.height * 0.8;
 
     this.run();
@@ -176,21 +193,18 @@ Arm.prototype.run = function() {
 
     var dx = this.pointer.x - this.origin.x;
     var dy = this.pointer.y - this.origin.y;
-    var origAngles = [];
-    for(var i = 0; i < this.bones.length; ++i) {
-        origAngles.push(this.bones[i].relAngle);
-    }
     for(var i = 0; i < 10; ++i) {
         var res = this.solve(dx, dy);
         if(res == 0) {
             continue;
         } else if(res == -1) {
-            /*for(var i = 0; i < this.bones.length; ++i) {
-                this.bones[i].relAngle = origAngles[i];
-            }*/
-            console.log("FAILED");
+            //console.log("FAILED");
         }
         break;
+    }
+
+    for(var i = 0; i < this.bones.length; ++i) {
+        this.angles[i] = deg(this.bones[i].mapToServoAng(this.bones[i].calcServoAng()));
     }
 
     ctx.save();
@@ -208,7 +222,6 @@ Arm.prototype.run = function() {
         ctx.rotate(s.relAngle);
         this.drawLine(0, 0, s.length*this.unit, 0, s.color, 3, 6);
 
-
         ctx.translate(s.length*this.unit, 0);
     }
 
@@ -216,7 +229,7 @@ Arm.prototype.run = function() {
         ctx.restore();
     }
 
-    ctx.font = '18px monospace';
+    /*ctx.font = '18px monospace';
     ctx.fillStyle = "black"
     var y = 60;
     for(var i = 0; i < this.bones.length; ++i) {
@@ -228,18 +241,17 @@ Arm.prototype.run = function() {
         ctx.restore();
 
 
-        ctx.fillText((b.angle >= 0 ? " " : "") + b.angle.toFixed(2), -225, y);
-        ctx.fillText((b.angle >= 0 ? " " : "") + deg(b.angle).toFixed(2), -150, y);
-        ctx.fillText((b.relAngle >= 0 ? " " : "") + b.relAngle.toFixed(2), -75, y);
+        ctx.fillText((b.angle >= 0 ? " " : "") + b.angle.toFixed(2), -300, y);
+        ctx.fillText((b.angle >= 0 ? " " : "") + deg(b.angle).toFixed(2), -200, y);
+        ctx.fillText((b.relAngle >= 0 ? " " : "") + b.relAngle.toFixed(2), -100, y);
         ctx.fillText((b.relAngle >= 0 ? " " : "") + deg(b.relAngle).toFixed(2), 0, y);
-        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + b.calcServoAng().toFixed(2), 75, y);
-        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + deg(b.calcServoAng()).toFixed(2), 150, y);
-        y += 20;
-    }
+        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + b.calcServoAng().toFixed(2), 100, y);
+        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + deg(b.calcServoAng()).toFixed(2), 200, y);
+        ctx.fillText((b.mapToServoAng(b.calcServoAng()) >= 0 ? " " : "") + deg(b.mapToServoAng(b.calcServoAng())).toFixed(2), 300, y);
 
-/*    for(var i = 0; i < this.bones.length; ++i) {
-        var s = this.bones[i];
-        this.drawCircleDashed(s.x, s.y, s.length*this.unit, s.color);
+        var relBase = this.bones[i].angle - this.bones[0].angle;
+        ctx.fillText((relBase >= 0 ? " " : "") + relBase.toFixed(2), -350, y);
+        y += 20;
     }*/
 
     ctx.restore();
@@ -269,8 +281,9 @@ Arm.prototype.solve = function(targetX, targetY) {
         prev = this.bones[i];
     }
 
-    if(targetY > 0)
-        targetY = 0;
+    // Limit under-robot positions
+    if(targetY > this.unit*this.ARM_BASE_HEIGHT)
+        targetY = this.unit*this.ARM_BASE_HEIGHT;
 
     var endX = prev.x;
     var endY = prev.y;
@@ -352,10 +365,6 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
     var me = bones[idx];
 
     var base = bones[0];
-    if(base.angle < -2) {
-        // limit back
-    }
-
 
     var newRelAng = clampAng(me.relAngle + rotAng)
     var _min = me.relMin;
@@ -366,8 +375,6 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
         newRelAng = _max;
     }
 
-    var res = clampAng(newRelAng - me.relAngle);
-
     var x = 0;
     var y = 0;
     var prevAng = 0;
@@ -375,20 +382,28 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
         var b = bones[i];
         var angle = b.relAngle;
         if(idx == i) {
-            angle += res;
+            angle = newRelAng;
         }
         angle = clampAng(prevAng + angle);
+
+        // arm helper-sticks collision with the bottom of the servo stand
+        if(i > 0 && i == idx && angle < -0.9) {
+            newRelAng = clampAng(-0.9 - prevAng);
+            angle = -0.9;
+        }
 
         var nx = x + (Math.cos(angle) * b.length * this.unit);
         var ny = y + (Math.sin(angle) * b.length * this.unit);
 
-        if(ny > 10) {
+        // Limit under-robot positions
+        if(ny > this.unit*this.ARM_BASE_HEIGHT) {
             return 0;
         }
 
-        var servo = b.calcServoAng(angle);
-        if(servo < 2.2 && servo > 0) {
-            return 0;
+        if(i > 0 && angle - base.angle < 0.70) { // arm helper-sticks collision - when extending the arm all the way forward
+            base.angle = clampAng(angle-0.70)
+        } else if(i > 0 && angle - base.angle > 2.80) {  // arm helper-sticks collision - when fully retracted
+            base.angle = clampAng(angle-2.80)
         }
 
         x = nx;
@@ -396,7 +411,7 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
         prevAng = angle;
     }
 
+    var res = clampAng(newRelAng - me.relAngle);
     me.relAngle = newRelAng;
     return res;
 }
-
