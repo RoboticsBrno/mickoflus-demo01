@@ -22,8 +22,8 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "Anthrophobia"
-#define WIFI_PASSWORD ""
+#define WIFI_NAME "Technika"
+#define WIFI_PASSWORD "materidouska"
 
 
 void setup() {
@@ -52,7 +52,7 @@ void setup() {
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
     // else create an AP.
-    if(true || man.expander().digitalRead(rb::SW1) != 0) {
+    if(man.expander().digitalRead(rb::SW1) != 0) {
         man.leds().yellow();
         rb::WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
     } else {
