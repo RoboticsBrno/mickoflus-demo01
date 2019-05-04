@@ -45,11 +45,11 @@ Bone.prototype.updatePos = function(prevBone, unit) {
 
 function Arm(canvasId) {
     this.BODY_HEIGHT = 6;
-    this.BODY_RADIUS = 12;
-    this.ARM_BASE_HEIGHT = 5;
+    this.BODY_RADIUS = 11;
+    this.ARM_BASE_HEIGHT = 2;
     this.TOUCH_TARGET_SIZE = 4;
-    this.ARM_SEGMENTS = [ 11, 10, 9 ];
-    this.ARM_COLORS = [ "blue", "orange", "green" ];
+    this.ARM_SEGMENTS = [ 11, 13 ];
+    this.ARM_COLORS = [ "blue", "orange" ];
     this.ARM_TOTAL_LEN = 0;
 
     this.bones = [];
@@ -60,34 +60,24 @@ function Arm(canvasId) {
         this.angles.push(0);
     }
 
-    this.bones[2].relMin = -Math.PI/8;
-    this.bones[2].relMax = Math.PI/8;
-
     this.bones[1].relMin = 0.523599;
-    this.bones[1].relMax = Math.PI - 0.523599;
+    this.bones[1].relMax = Math.PI - 0.261799;
 
-    this.bones[0].relMin = -Math.PI;
+    this.bones[0].relMin = -1.7;
     this.bones[0].relMax = 0;
 
     this.bones[0].calcServoAng = function(absAng) {
         return (absAng !== undefined) ? absAng : this.angle;
     }.bind(this.bones[0]);
     this.bones[0].mapToServoAng = function(absAng) {
-        return absAng * -1;
+        return (Math.PI) - (absAng * -1) + 0.523599;
     }
 
     this.bones[1].calcServoAng = function(absAng) {
         return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
     }.bind(this.bones[1]);
     this.bones[1].mapToServoAng = function(absAng) {
-        return Math.PI - (clampAng(absAng + Math.PI/2) * -1);
-    }
-
-    this.bones[2].calcServoAng = function(absAng) {
-        return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
-    }.bind(this.bones[2]);
-    this.bones[2].mapToServoAng = function(absAng) {
-        return (clampAng(absAng + Math.PI/2) * -1) + 1.39626;
+        return Math.PI - (clampAng(absAng + Math.PI/2) * -1) + 0.523599;
     }
 
     this.canvas = ge1doot.canvas(canvasId);
@@ -229,7 +219,7 @@ Arm.prototype.run = function() {
         ctx.restore();
     }
 
-    /*ctx.font = '18px monospace';
+    ctx.font = '18px monospace';
     ctx.fillStyle = "black"
     var y = 60;
     for(var i = 0; i < this.bones.length; ++i) {
@@ -252,7 +242,7 @@ Arm.prototype.run = function() {
         var relBase = this.bones[i].angle - this.bones[0].angle;
         ctx.fillText((relBase >= 0 ? " " : "") + relBase.toFixed(2), -350, y);
         y += 20;
-    }*/
+    }
 
     ctx.restore();
 

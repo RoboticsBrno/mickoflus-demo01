@@ -13,8 +13,6 @@
 #include "RBControl_battery.hpp"
 #include "RBControl_wifi.hpp"
 
-#include <Servo.h>
-
 #include "motors.hpp"
 
 // CHANGE THESE so you can find the robot in the Android app
@@ -22,8 +20,8 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "Technika"
-#define WIFI_PASSWORD "materidouska"
+#define WIFI_NAME "domov"
+#define WIFI_PASSWORD "Monty2aTara"
 
 
 void setup() {
@@ -39,9 +37,6 @@ void setup() {
         io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
         gpio_config(&io_conf);
     }
-
-    Servo servo_claw;
-    servo_claw.attach(26);
 
     // Set the battery measuring coefficient.
     // Measure voltage at battery connector and
@@ -69,14 +64,13 @@ void setup() {
         .pwmMaxPercent(MOTOR_TURRET_ROTATION, 30)
         .pwmMaxPercent(rb::MotorId::M2, 100)
         .set();
-    
+
     auto& servos = man.initSmartServoBus(3);
     servos.limit(0,  0_deg, 220_deg );
-    servos.limit(1, 25_deg, 190_deg );
+    servos.limit(1, 85_deg, 210_deg );
     servos.limit(2, 40_deg, 180_deg);
 
-    // otherwise pos doesn't work..
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(400 / portTICK_PERIOD_MS);
 
     float p1 = servos.pos(0);
     float p2 = servos.pos(1);
@@ -86,7 +80,6 @@ void setup() {
     printf("%f\n", p3);
 
     bool isGrabbing = false;
-    int baseTarget = 0;
 
     // Initialize the communication protocol
     rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
@@ -95,12 +88,11 @@ void setup() {
         } else if(command == "arm0") {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
-            //printf("%f %f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0), angles->getDouble(2, 0));
-            bus.set(1, angles->getDouble(0, 0), 130, 0.07f);
+            printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
+            /*bus.set(1, angles->getDouble(0, 0), 130, 0.07f);
             bus.set(2, angles->getDouble(1, 0), 130, 0.07f);
-            bus.set(0, angles->getDouble(2, 0), 130, 0.07f);
+            bus.set(0, angles->getDouble(2, 0), 130, 0.07f);*/
         } else if(command == "grab") {
-            servo_claw.write(isGrabbing ? 170 : 00);
             isGrabbing = !isGrabbing;
         }
     });
@@ -109,7 +101,7 @@ void setup() {
 
     //printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+   // vTaskDelay(1000 / portTICK_PERIOD_MS);
     //printf("\n\nBATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n\n\n", batt.raw(), batt.coef(), batt.voltageMv());
 
     int iter = 0;
@@ -130,11 +122,13 @@ void setup() {
     Serial.write((uint8_t*)buff, 7);
 
     while(true) {
-        while(Serial.read() != 0x55) { }
+        while(Serial.read() != 0x55) {
+            vTaskDelay(100);
+        }
 
         if(Serial.read() != 0x55)
             continue;
-        
+
         int cmd = Serial.read();
         int len = Serial.read();
         Serial.readBytes(buff, len);
