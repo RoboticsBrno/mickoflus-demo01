@@ -20,23 +20,13 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "domov"
-#define WIFI_PASSWORD "Monty2aTara"
+#define WIFI_NAME "Technika"
+#define WIFI_PASSWORD "materidouska"
 
 
 void setup() {
     // Initialize the robot manager
     rb::Manager man;
-
-    {
-        gpio_config_t io_conf;
-        io_conf.intr_type = GPIO_INTR_DISABLE;
-        io_conf.pin_bit_mask = (1ULL << 26);
-        io_conf.mode = GPIO_MODE_OUTPUT;
-        io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-        io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-        gpio_config(&io_conf);
-    }
 
     // Set the battery measuring coefficient.
     // Measure voltage at battery connector and
@@ -68,7 +58,7 @@ void setup() {
     auto& servos = man.initSmartServoBus(3);
     servos.limit(0,  0_deg, 220_deg );
     servos.limit(1, 85_deg, 210_deg );
-    servos.limit(2, 40_deg, 180_deg);
+    servos.limit(2, 75_deg, 160_deg);
 
     vTaskDelay(400 / portTICK_PERIOD_MS);
 
@@ -88,12 +78,13 @@ void setup() {
         } else if(command == "arm0") {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
-            printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
-            /*bus.set(1, angles->getDouble(0, 0), 130, 0.07f);
-            bus.set(2, angles->getDouble(1, 0), 130, 0.07f);
-            bus.set(0, angles->getDouble(2, 0), 130, 0.07f);*/
+            //printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
+            bus.set(0, angles->getDouble(0, 0), 130, 0.07f);
+            bus.set(1, angles->getDouble(1, 0), 130, 0.07f);
+            //bus.set(2, angles->getDouble(2, 0), 130, 0.07f);
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
+            man.servoBus().set(2, isGrabbing ? 75 : 160);
         }
     });
 

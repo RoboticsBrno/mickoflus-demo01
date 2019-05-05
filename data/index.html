@@ -75,6 +75,7 @@
     top: 0;
     z-index: 1000;
   }
+
   </style>
 </head>
 
@@ -84,7 +85,6 @@
   <canvas id="arm0"></canvas>
 
   <div id="joy0" class="joy"> </div>
-  <div id="joy1" class="joy"> </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.7.3/nipplejs.min.js"></script>
@@ -311,7 +311,7 @@
             }
             this.socket.send(JSON.stringify({ "c": "joy", "data": data }))
 
-            if(this.arm && this.arm.touched) {
+            if(this.arm && this.arm.shouldSend()) {
                 this.socket.send(JSON.stringify({ "c": "arm0", "a": this.arm.angles }));
             }
         }
@@ -380,10 +380,6 @@
     window.addEventListener("load", function(){
         var man = new Manager("log");
         man.addJoystick(new Joystick("joy0", "blue", "wasd"));
-        man.addJoystick(new Joystick("joy1", "red", "ijkl ", "Grab", function() {
-            man.flashBody();
-            man.sendMustArrive("grab", {});
-        }));
         man.setArm(new Arm("arm0", man));
 
         man.start("ws://localhost:9000");
