@@ -23,7 +23,6 @@
 #define WIFI_NAME "Technika"
 #define WIFI_PASSWORD "materidouska"
 
-
 void setup() {
     // Initialize the robot manager
     rb::Manager man;
@@ -37,7 +36,7 @@ void setup() {
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
     // else create an AP.
-    if(man.expander().digitalRead(rb::SW1) != 0) {
+    if(man.expander().digitalRead(rb::SW1) == 0) {
         man.leds().yellow();
         rb::WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
     } else {
@@ -60,11 +59,12 @@ void setup() {
     servos.limit(1, 85_deg, 210_deg );
     servos.limit(2, 75_deg, 160_deg);
 
-    vTaskDelay(400 / portTICK_PERIOD_MS);
+    //vTaskDelay(400 / portTICK_PERIOD_MS);
 
     float p1 = servos.pos(0);
     float p2 = servos.pos(1);
     float p3 = servos.pos(2);
+    //float p3 = 0;
     printf("%f\n", p1);
     printf("%f\n", p2);
     printf("%f\n", p3);
@@ -79,8 +79,8 @@ void setup() {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
             //printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
-            bus.set(0, angles->getDouble(0, 0), 130, 0.07f);
-            bus.set(1, angles->getDouble(1, 0), 130, 0.07f);
+            bus.set(0, angles->getDouble(0, 0), 150, 0.07f);
+            bus.set(1, angles->getDouble(1, 0), 150, 0.07f);
             //bus.set(2, angles->getDouble(2, 0), 130, 0.07f);
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
