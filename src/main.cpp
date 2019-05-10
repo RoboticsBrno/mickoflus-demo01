@@ -59,12 +59,9 @@ void setup() {
     servos.limit(1, 85_deg, 210_deg );
     servos.limit(2, 75_deg, 160_deg);
 
-    //vTaskDelay(400 / portTICK_PERIOD_MS);
-
     float p1 = servos.pos(0);
     float p2 = servos.pos(1);
     float p3 = servos.pos(2);
-    //float p3 = 0;
     printf("%f\n", p1);
     printf("%f\n", p2);
     printf("%f\n", p3);
@@ -81,7 +78,6 @@ void setup() {
             //printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
             bus.set(0, angles->getDouble(0, 0), 150, 0.07f);
             bus.set(1, angles->getDouble(1, 0), 150, 0.07f);
-            //bus.set(2, angles->getDouble(2, 0), 130, 0.07f);
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
             man.servoBus().set(2, isGrabbing ? 75 : 160);
@@ -92,7 +88,7 @@ void setup() {
 
     //printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
-   // vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //vTaskDelay(1000 / portTICK_PERIOD_MS);
     //printf("\n\nBATTERY CALIBRATION INFO: %d (raw) * %.2f (coef) = %dmv\n\n\n", batt.raw(), batt.coef(), batt.voltageMv());
 
     int iter = 0;
