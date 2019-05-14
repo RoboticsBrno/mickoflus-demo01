@@ -17,7 +17,6 @@ function Bone(length, color) {
     this.relAngle = -Math.PI/2;
     this.length = length;
     this.color = color;
-    this.calcServoAng = null;
     this.mapToServoAng = null;
 
     this.x = 0;
@@ -129,23 +128,18 @@ function Arm(canvasId, manager) {
         this.angles.push(0);
     }
 
-    this.bones[1].relMin = 0.523599;
-    this.bones[1].relMax = Math.PI - 0.261799;
-
     this.bones[0].relMin = -1.7;
     this.bones[0].relMax = 0;
 
-    this.bones[0].calcServoAng = function(absAng) {
-        return (absAng !== undefined) ? absAng : this.angle;
-    }.bind(this.bones[0]);
-    this.bones[0].mapToServoAng = function(absAng) {
-        return (Math.PI) - (absAng * -1) + 0.523599;
+    this.bones[1].relMin = 0.523599;
+    this.bones[1].relMax = Math.PI - 0.261799;
+
+    this.bones[0].mapToServoAng = function() {
+        return (Math.PI) - (this.angle * -1) + 0.523599;
     }
 
-    this.bones[1].calcServoAng = function(absAng) {
-        return clampAng(((absAng !== undefined) ? absAng : this.angle) + Math.PI);
-    }.bind(this.bones[1]);
-    this.bones[1].mapToServoAng = function(absAng) {
+    this.bones[1].mapToServoAng = function() {
+        var absAng = clampAng(this.angle + Math.PI);
         return Math.PI - (clampAng(absAng + Math.PI/2) * -1) + 0.423599;
     }
 
@@ -333,7 +327,7 @@ Arm.prototype.updateAngles = function(updateAbsAngles) {
     for(var i = 0; i < this.bones.length; ++i) {
         if(updateAbsAngles === true)
             this.bones[i].updatePos(prev, this.unit);
-        this.angles[i] = deg(this.bones[i].mapToServoAng(this.bones[i].calcServoAng()));
+        this.angles[i] = deg(this.bones[i].mapToServoAng());
         prev = this.bones[i];
     }
 }
@@ -359,6 +353,13 @@ Arm.prototype.draw = function() {
     var ctx = this.canvas.ctx;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    ctx.font = '12px monospace';
+    ctx.fillStyle = "black"
+    var dx = (this.pointer.x - this.origin.x) / this.unit * 10;
+    var dy = (this.pointer.y - this.origin.y) / this.unit * 10;
+    ctx.fillText(dx.toFixed(1), 20, 12);
+    ctx.fillText(dy.toFixed(1), 20, 24);
+
     ctx.save();
     ctx.translate(this.origin.x, this.origin.y);
     var w = this.unit*this.BODY_RADIUS*2;
@@ -381,24 +382,23 @@ Arm.prototype.draw = function() {
         ctx.restore();
     }
 
-   /* ctx.font = '18px monospace';
+    /*
+    ctx.font = '18px monospace';
     ctx.fillStyle = "black"
-    var y = 60;
+    var y = this.BODY_HEIGHT*this.unit;
     for(var i = 0; i < this.bones.length; ++i) {
         var b = this.bones[i];
 
         ctx.save()
-        ctx.rotate(b.calcServoAng());
+        ctx.rotate(b.mapToServoAng());
         this.drawLine(0, 0, 5*this.unit, 0, b.color, 2, 0);
         ctx.restore();
 
-        ctx.fillText((b.angle >= 0 ? " " : "") + b.angle.toFixed(2), -200, y);
-        ctx.fillText((b.angle >= 0 ? " " : "") + deg(b.angle).toFixed(2), -100, y);
-        ctx.fillText((b.relAngle >= 0 ? " " : "") + b.relAngle.toFixed(2), 0, y);
-        ctx.fillText((b.relAngle >= 0 ? " " : "") + deg(b.relAngle).toFixed(2), 100, y);
-        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + b.calcServoAng().toFixed(2), 200, y);
-        ctx.fillText((b.calcServoAng() >= 0 ? " " : "") + deg(b.calcServoAng()).toFixed(2), 300, y);
-        ctx.fillText((b.mapToServoAng(b.calcServoAng()) >= 0 ? " " : "") + deg(b.mapToServoAng(b.calcServoAng())).toFixed(2), 400, y);
+        ctx.fillText((b.angle >= 0 ? " " : "") + b.angle.toFixed(2), -100, y);
+        ctx.fillText((b.angle >= 0 ? " " : "") + deg(b.angle).toFixed(2), 0, y);
+        ctx.fillText((b.relAngle >= 0 ? " " : "") + b.relAngle.toFixed(2), 100, y);
+        ctx.fillText((b.relAngle >= 0 ? " " : "") + deg(b.relAngle).toFixed(2), 200, y);
+        ctx.fillText((b.mapToServoAng() >= 0 ? " " : "") + deg(b.mapToServoAng()).toFixed(2), 300, y);
 
         var relBase = this.bones[i].angle - this.bones[0].angle;
         ctx.fillText((relBase >= 0 ? " " : "") + relBase.toFixed(2), -350, y);
@@ -576,7 +576,6 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
             if(ny > this.unit*(this.ARM_BASE_HEIGHT + this.BODY_HEIGHT))
                 return 0;
         }
-
 
         if(i > 0 && angle - base.angle < 0.70) { // arm helper-sticks collision - when extending the arm all the way forward
             base.angle = clampAng(angle-0.70)
