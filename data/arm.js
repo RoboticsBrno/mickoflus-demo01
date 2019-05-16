@@ -245,7 +245,7 @@ Arm.prototype.handleButton = function(text) {
             if(this.animation !== null)
                  break;
             this.animation = new Animation(this);
-            this.animation.addFrame([ -1.06, 1.98 ], 300);
+            this.animation.addFrame([ -1.22, 1.86 ], 300);
             this.animation.addFrame([ -1.70, 2.87 ], 200);
             this.animation.start();
             break;
@@ -253,8 +253,8 @@ Arm.prototype.handleButton = function(text) {
             if(this.animation !== null)
                  break;
             this.animation = new Animation(this);
-            this.animation.addFrame([ -1.06, 1.98 ], 300);
-            this.animation.addFrame([ -0.52, 1.78 ], 200);
+            this.animation.addFrame([ -1.22, 1.86 ], 300);
+            this.animation.addFrame([ -0.45, 1.78 ], 200);
             this.animation.start();
             break;
             break;
@@ -382,7 +382,7 @@ Arm.prototype.draw = function() {
         ctx.restore();
     }
 
-    /*
+/*
     ctx.font = '18px monospace';
     ctx.fillStyle = "black"
     var y = this.BODY_HEIGHT*this.unit;

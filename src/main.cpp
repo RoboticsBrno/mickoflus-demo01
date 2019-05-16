@@ -23,9 +23,11 @@
 #define WIFI_NAME "Technika"
 #define WIFI_PASSWORD "materidouska"
 
+using namespace rb;
+
 void setup() {
     // Initialize the robot manager
-    rb::Manager man;
+    Manager man;
 
     // Set the battery measuring coefficient.
     // Measure voltage at battery connector and
@@ -36,12 +38,12 @@ void setup() {
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
     // else create an AP.
-    if(man.expander().digitalRead(rb::SW1) == 0) {
+    if(man.expander().digitalRead(SW1) == 0) {
         man.leds().yellow();
-        rb::WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
+        WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
     } else {
         man.leds().green();
-        rb::WiFi::startAp("Flus" OWNER "-" NAME, "flusflus");
+        WiFi::startAp("Flus" OWNER "-" NAME, "flusflus", 12);
     }
 
     rb_web_start(80);   // Start web server with control page (see data/index.html)
@@ -51,36 +53,38 @@ void setup() {
         .pwmMaxPercent(MOTOR_LEFT, 100)
         .pwmMaxPercent(MOTOR_RIGHT, 100)
         .pwmMaxPercent(MOTOR_TURRET_ROTATION, 30)
-        .pwmMaxPercent(rb::MotorId::M2, 100)
+        .pwmMaxPercent(MotorId::M2, 100)
         .set();
 
     auto& servos = man.initSmartServoBus(3);
+    servos.setAutoStop(2);
     servos.limit(0,  0_deg, 220_deg );
     servos.limit(1, 85_deg, 210_deg );
     servos.limit(2, 75_deg, 160_deg);
 
-    float p1 = servos.pos(0);
-    float p2 = servos.pos(1);
-    float p3 = servos.pos(2);
+    float p1 = servos.pos(0).deg();
+    float p2 = servos.pos(1).deg();
+    float p3 = servos.pos(2).deg();
     printf("%f\n", p1);
     printf("%f\n", p2);
     printf("%f\n", p3);
 
-    bool isGrabbing = false;
+    bool isGrabbing = p3 < 150;
 
     // Initialize the communication protocol
-    rb::Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
+    Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
+        //printf("Commmand %s\n", command.c_str());
         if(command == "joy") {
             motors_handle_joysticks(man, pkt);
         } else if(command == "arm0") {
             const rbjson::Array *angles = pkt->getArray("a");
             auto &bus = man.servoBus();
             //printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
-            bus.set(0, angles->getDouble(0, 0), 150, 0.07f);
-            bus.set(1, angles->getDouble(1, 0), 150, 0.07f);
+            bus.set(0, Angle::deg(angles->getDouble(0, 0)), 150, 0.0022f);
+            bus.set(1, Angle::deg(angles->getDouble(1, 0)), 150, 0.0022f);
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
-            man.servoBus().set(2, isGrabbing ? 75 : 160);
+            man.servoBus().set(2, isGrabbing ? 75_deg : 160_deg, 200.f, 1.f);
         }
     });
 
@@ -124,7 +128,7 @@ void setup() {
             case 0: {
                 int id = buff[0];
                 float angle = ((int)buff[1]) & 0xFF;
-                servos.set(id, angle, 80);
+                servos.set(id, Angle::deg(angle), 80);
                 break;
             }
         }
