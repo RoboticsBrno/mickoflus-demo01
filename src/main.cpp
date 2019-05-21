@@ -25,7 +25,9 @@
 
 void setup() {
     // Initialize the robot manager
-    rb::Manager man;
+    auto& man = rb::Manager::get();
+
+    man.install();
 
     // Set the battery measuring coefficient.
     // Measure voltage at battery connector and
