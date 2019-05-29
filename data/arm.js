@@ -13,18 +13,25 @@ function deg(rad) {
     return rad * (180.0/Math.PI);
 }
 
-function Bone(length, color) {
-    this.relAngle = -Math.PI/2;
-    this.length = length;
+function Bone(info, color, prev) {
+    this.length = info.len;
     this.color = color;
-    this.mapToServoAng = null;
 
     this.x = 0;
     this.y = 0;
-    this.angle = 0;
+    this.angle = info.angle;
+    if(prev == null) {
+        this.relAngle = this.angle;
+    } else {
+        this.relAngle = clampAng(prev.angle - this.angle);
+    }
 
-    this.relMin = -Math.PI;
-    this.relMax = -Math.PI;
+    this.relMin = info.rmin;
+    this.relMax = info.rmax;
+    this.absMin = info.amin;
+    this.absMax = info.amax;
+    this.baseMin = info.bmin;
+    this.baseMax = info.bmax;
 }
 
 Bone.prototype.updatePos = function(prevBone, unit) {
@@ -94,7 +101,6 @@ Animation.prototype.update = function() {
 
     for(var i = 0; i < f.angles.length; ++i) {
         diff = f.angles[i] - f.start[i];
-        console.log(f.start[i], f.angles[i], diff, clampAng(diff));
         diff = clampAng(diff);
         this.arm.bones[i].relAngle = clampAng(f.start[i] + diff*progress);
     }
@@ -110,37 +116,19 @@ Animation.prototype.update = function() {
     requestAnimationFrame(this.update.bind(this));
 }
 
-function Arm(canvasId, manager) {
-    this.BODY_HEIGHT = 6;
-    this.BODY_RADIUS = 11;
-    this.ARM_BASE_HEIGHT = 2;
+function Arm(info, canvasId, manager) {
+    this.BODY_HEIGHT = info.height;
+    this.BODY_RADIUS = info.radius;
+    this.ARM_BASE_HEIGHT = info.off_y;
     this.TOUCH_TARGET_SIZE = 4;
-    this.ARM_SEGMENTS = [ 11, 14 ];
-    this.ARM_COLORS = [ "blue", "orange" ];
     this.ARM_TOTAL_LEN = 0;
     this.BUTTON_TEXTS = [ "RETRACT", "EXTEND", "GRAB" ];
 
     this.bones = [];
-    this.angles = [];
-    for(var i = 0; i < this.ARM_SEGMENTS.length; ++i) {
-        this.ARM_TOTAL_LEN += this.ARM_SEGMENTS[i];
-        this.bones.push(new Bone(this.ARM_SEGMENTS[i], this.ARM_COLORS[i]));
-        this.angles.push(0);
-    }
-
-    this.bones[0].relMin = -1.7;
-    this.bones[0].relMax = 0;
-
-    this.bones[1].relMin = 0.523599;
-    this.bones[1].relMax = Math.PI - 0.261799;
-
-    this.bones[0].mapToServoAng = function() {
-        return (Math.PI) - (this.angle * -1) + 0.523599;
-    }
-
-    this.bones[1].mapToServoAng = function() {
-        var absAng = clampAng(this.angle + Math.PI);
-        return Math.PI - (clampAng(absAng + Math.PI/2) * -1) + 0.423599;
+    var colors = [ "blue", "orange", "green", "red", "brown" ];
+    for(var i = 0; i < info.bones.length; ++i) {
+        this.ARM_TOTAL_LEN += info.bones[i].len;
+        this.bones.push(new Bone(info.bones[i], colors[i%colors.length]));
     }
 
     this.buttons = [];
@@ -327,7 +315,6 @@ Arm.prototype.updateAngles = function(updateAbsAngles) {
     for(var i = 0; i < this.bones.length; ++i) {
         if(updateAbsAngles === true)
             this.bones[i].updatePos(prev, this.unit);
-        this.angles[i] = deg(this.bones[i].mapToServoAng());
         prev = this.bones[i];
     }
 }
@@ -345,8 +332,16 @@ Arm.prototype.run = function() {
         break;
     }
 
-    this.updateAngles();
+    this.updateAngles(true);
     this.draw();
+}
+
+Arm.prototype.getTargetPos = function() {
+    var end = this.bones[this.bones.length-1];
+    return {
+        "x": end.x / this.unit,
+        "y": end.y / this.unit,
+    }
 }
 
 Arm.prototype.draw = function() {
@@ -355,8 +350,8 @@ Arm.prototype.draw = function() {
 
     ctx.font = '12px monospace';
     ctx.fillStyle = "black"
-    var dx = (this.pointer.x - this.origin.x) / this.unit * 10;
-    var dy = (this.pointer.y - this.origin.y) / this.unit * 10;
+    var dx = (this.pointer.x - this.origin.x) / this.unit;
+    var dy = (this.pointer.y - this.origin.y) / this.unit;
     ctx.fillText(dx.toFixed(1), 20, 12);
     ctx.fillText(dy.toFixed(1), 20, 24);
 
@@ -382,28 +377,22 @@ Arm.prototype.draw = function() {
         ctx.restore();
     }
 
-/*
+
     ctx.font = '18px monospace';
     ctx.fillStyle = "black"
     var y = this.BODY_HEIGHT*this.unit;
     for(var i = 0; i < this.bones.length; ++i) {
         var b = this.bones[i];
 
-        ctx.save()
-        ctx.rotate(b.mapToServoAng());
-        this.drawLine(0, 0, 5*this.unit, 0, b.color, 2, 0);
-        ctx.restore();
-
         ctx.fillText((b.angle >= 0 ? " " : "") + b.angle.toFixed(2), -100, y);
         ctx.fillText((b.angle >= 0 ? " " : "") + deg(b.angle).toFixed(2), 0, y);
         ctx.fillText((b.relAngle >= 0 ? " " : "") + b.relAngle.toFixed(2), 100, y);
         ctx.fillText((b.relAngle >= 0 ? " " : "") + deg(b.relAngle).toFixed(2), 200, y);
-        ctx.fillText((b.mapToServoAng() >= 0 ? " " : "") + deg(b.mapToServoAng()).toFixed(2), 300, y);
 
         var relBase = this.bones[i].angle - this.bones[0].angle;
         ctx.fillText((relBase >= 0 ? " " : "") + relBase.toFixed(2), -350, y);
         y += 20;
-    }*/
+    }
 
     ctx.restore();
 
@@ -560,9 +549,14 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
         angle = clampAng(prevAng + angle);
 
         // arm helper-sticks collision with the bottom of the servo stand
-        if(i > 0 && i == idx && angle < -0.35) {
-            newRelAng = clampAng(-0.35 - prevAng);
-            angle = -0.35;
+        if(i == idx) {
+            if(angle < b.absMin) {
+                angle = b.absMin;
+                newRelAng = clampAng(angle - prevAng);
+            } else if(angle > b.absMax) {
+                angle = b.absMax;
+                newRelAng = clampAng(angle - prevAng);
+            }
         }
 
         var nx = x + (Math.cos(angle) * b.length * this.unit);
@@ -577,10 +571,13 @@ Arm.prototype.rotateArm = function(bones, idx, rotAng) {
                 return 0;
         }
 
-        if(i > 0 && angle - base.angle < 0.70) { // arm helper-sticks collision - when extending the arm all the way forward
-            base.angle = clampAng(angle-0.70)
-        } else if(i > 0 && angle - base.angle > 2.80) {  // arm helper-sticks collision - when fully retracted
-            base.angle = clampAng(angle-2.80)
+        if(i > 0) {
+            var diff = angle - base.angle;
+            if(diff < b.baseMin) {
+                base.angle = clampAng(angle - b.baseMin);
+            } else if(diff > b.baseMax) {
+                base.angle = clampAng(angle - b.baseMax);
+            }
         }
 
         x = nx;

@@ -12,6 +12,7 @@
 #include "RBControl_manager.hpp"
 #include "RBControl_battery.hpp"
 #include "RBControl_wifi.hpp"
+#include "RBControl_arm.hpp"
 
 #include "motors.hpp"
 
@@ -20,10 +21,57 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "Technika"
-#define WIFI_PASSWORD "materidouska"
+#define WIFI_NAME "domov"
+#define WIFI_PASSWORD "Monty2aTara"
 
 using namespace rb;
+
+static std::unique_ptr<Arm> buildArm() {
+    ArmBuilder builder;
+    builder.body(60, 110).armOffset(0, 20);
+
+    auto b0 = builder.bone(0, 110);
+    b0.relStops(-95_deg, 0_deg);
+    b0.calcServoAng([](Angle absAngle, Angle) -> Angle {
+        return Angle::Pi - (absAngle * -1) + 30_deg;
+    });
+
+    auto b1 = builder.bone(1, 140);
+    b1.relStops(30_deg, 165_deg)
+        .absStops(-20_deg, Angle::Pi)
+        .baseRelStops(40_deg, 160_deg);
+    b1.calcServoAng([](Angle absAngle, Angle) -> Angle {
+        absAngle = Arm::clamp(absAngle + Angle::Pi*1.5);
+        return Angle::Pi - (absAngle * -1) + 25_deg;
+    });
+
+    return builder.build();
+}
+
+static void sendArmInfo(Protocol& prot, const Arm::Definition& def) {
+    auto *info = new rbjson::Object();
+    info->set("height", def.body_height);
+    info->set("radius", def.body_radius);
+    info->set("off_x", def.arm_offset_x);
+    info->set("off_y", def.arm_offset_y);
+
+    auto *bones = new rbjson::Array();
+    auto& servo = Manager::get().servoBus();
+    for(const auto& b : def.bones) {
+        auto *info_b = new rbjson::Object();
+        info_b->set("len", b.length);
+        info_b->set("angle", servo.posOffline(b.servo_id).rad());
+        info_b->set("rmin", b.rel_min.rad());
+        info_b->set("rmax", b.rel_max.rad());
+        info_b->set("amin", b.abs_min.rad());
+        info_b->set("amax", b.abs_max.rad());
+        info_b->set("bmin", b.base_rel_min.rad());
+        info_b->set("bmax", b.base_rel_max.rad());
+        bones->push_back(info_b);
+    }
+    info->set("bones", bones);
+    prot.send_mustarrive("arminfo", info);
+}
 
 void setup() {
     // Initialize the robot manager
@@ -70,22 +118,31 @@ void setup() {
     printf("%f\n", p2);
     printf("%f\n", p3);
 
+    auto arm = buildArm();
+
     bool isGrabbing = p3 < 150;
 
     // Initialize the communication protocol
     Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
-        //printf("Commmand %s\n", command.c_str());
+        printf("Commmand %s\n", command.c_str());
         if(command == "joy") {
             motors_handle_joysticks(man, pkt);
-        } else if(command == "arm0") {
-            const rbjson::Array *angles = pkt->getArray("a");
-            auto &bus = man.servoBus();
-            //printf("%f %f\n", angles->getDouble(0, 0), angles->getDouble(1, 0));
-            bus.set(0, Angle::deg(angles->getDouble(0, 0)), 150, 0.0022f);
-            bus.set(1, Angle::deg(angles->getDouble(1, 0)), 150, 0.0022f);
+        } else if(command == "arm") {
+            const auto& b = arm->bones();
+            const double x = pkt->getDouble("x");
+            const double y = pkt->getDouble("y");
+
+            bool res = arm->solve(x, y);
+            printf("%f %f %d | %f %f | %f %f\n", x, y, (int)res,
+                b[0].absAngle.rad(), b[1].absAngle.rad(),
+                b[0].servoAng().rad(), b[1].servoAng().rad());
+
+            //arm->setServos();
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
             man.servoBus().set(2, isGrabbing ? 75_deg : 160_deg, 200.f, 1.f);
+        } else if(command == "arminfo") {
+            sendArmInfo(prot, arm->definition());
         }
     });
 

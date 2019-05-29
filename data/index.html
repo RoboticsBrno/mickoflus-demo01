@@ -253,6 +253,8 @@
         this.joysticks = [];
         this.arm = null;
 
+        this.divider = 0;
+
         this.mustArriveIdIn = 0;
         this.mustArriveIdOut = 0;
         this.mustArriveCommands = {};
@@ -267,8 +269,13 @@
         this.joysticks.push(joy);
     }
 
-    Manager.prototype.setArm = function(arm) {
-        this.arm = arm;
+    Manager.prototype.createArm = function() {
+        if(this.arm !== null)
+            return;
+        if(this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.sendMustArrive("arminfo", {});
+        }
+        setTimeout(this.createArm.bind(this), 500);
     }
 
     Manager.prototype.start = function(address) {
@@ -297,6 +304,15 @@
     }
 
     Manager.prototype.update = function() {
+        this.divider += 1;
+        if(this.divider >= 5)
+            this.divider = 0;
+
+        if(this.divider !== 0) {
+            requestAnimationFrame(this.update.bind(this));
+            return;
+        }
+
         var now = Date.now();
         var diff = (now - this.lastUpdate);
         this.lastUpdate = now;
@@ -312,7 +328,9 @@
             this.socket.send(JSON.stringify({ "c": "joy", "data": data }))
 
             if(this.arm && this.arm.shouldSend()) {
-                this.socket.send(JSON.stringify({ "c": "arm0", "a": this.arm.angles }));
+                var pos = this.arm.getTargetPos();
+                pos["c"] = "arm";
+                this.socket.send(JSON.stringify(pos));
             }
         }
 
@@ -356,6 +374,9 @@
         case "log":
             this.log.write(data["msg"]);
             break;
+        case "arminfo":
+            this.arm = new Arm(data, "arm0", this);
+            break;
         }
     }
 
@@ -380,9 +401,8 @@
     window.addEventListener("load", function(){
         var man = new Manager("log");
         man.addJoystick(new Joystick("joy0", "blue", "wasd"));
-        man.setArm(new Arm("arm0", man));
-
         man.start("ws://localhost:9000");
+        man.createArm();
     });
   </script>
 </body>

@@ -2,3 +2,6 @@
 	path = lib/RB3201-RBControl-library
 	url = https://github.com/RoboticsBrno/RB3201-RBControl-library.git
 	branch = arm
+[submodule "lib/RB3201-RBProtocol-library"]
+	path = lib/RB3201-RBProtocol-library
+	url = https://github.com/RoboticsBrno/RB3201-RBProtocol-library.git
