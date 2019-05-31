@@ -31,13 +31,13 @@ void motors_handle_joysticks(rb::Manager& man, rbjson::Object *pkt) {
         if(y != 0)
             y = scale_motors(y);
 
-        int r = ((y - (x/2)));
-        int l = ((y + (x/2)));
+        int r = ((y - (x/1.5f)));
+        int l = ((y + (x/1.5f)));
         if(r < 0 && l < 0) {
             int tmp = r; r = l; l = tmp;
         }
 
-        builder.power(MOTOR_LEFT, l).power(MOTOR_RIGHT, r);
+        builder.power(MOTOR_LEFT, l).power(MOTOR_RIGHT, -r);
     }
 
     builder.set();

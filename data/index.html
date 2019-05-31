@@ -304,11 +304,9 @@
     }
 
     Manager.prototype.update = function() {
-        this.divider += 1;
-        if(this.divider >= 5)
+        if(++this.divider >= 2) {
             this.divider = 0;
-
-        if(this.divider !== 0) {
+        } else {
             requestAnimationFrame(this.update.bind(this));
             return;
         }
@@ -317,7 +315,7 @@
         var diff = (now - this.lastUpdate);
         this.lastUpdate = now;
 
-        if(this.socket.readyState === WebSocket.OPEN) {
+        if(this.socket.readyState === WebSocket.OPEN && this.arm) {
             var data = []
             for(var i = 0; i < this.joysticks.length; ++i) {
                 data.push({
@@ -327,7 +325,7 @@
             }
             this.socket.send(JSON.stringify({ "c": "joy", "data": data }))
 
-            if(this.arm && this.arm.shouldSend()) {
+            if(this.arm) {
                 var pos = this.arm.getTargetPos();
                 pos["c"] = "arm";
                 this.socket.send(JSON.stringify(pos));

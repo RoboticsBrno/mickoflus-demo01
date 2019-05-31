@@ -21,8 +21,8 @@
 #define NAME "FlusMcFlusy"
 
 // CHANGE THESE to your WiFi's settings
-#define WIFI_NAME "domov"
-#define WIFI_PASSWORD "Monty2aTara"
+#define WIFI_NAME "Technika"
+#define WIFI_PASSWORD "materidouska"
 
 using namespace rb;
 
@@ -33,34 +33,49 @@ static std::unique_ptr<Arm> buildArm() {
     auto b0 = builder.bone(0, 110);
     b0.relStops(-95_deg, 0_deg);
     b0.calcServoAng([](Angle absAngle, Angle) -> Angle {
-        return Angle::Pi - (absAngle * -1) + 30_deg;
+        return Angle::Pi + absAngle + 30_deg;
+    });
+    b0.calcAbsAng([](Angle servoAng) -> Angle {
+        return servoAng - Angle::Pi - 30_deg;
     });
 
-    auto b1 = builder.bone(1, 140);
+    auto b1 = builder.bone(1, 135);
     b1.relStops(30_deg, 165_deg)
         .absStops(-20_deg, Angle::Pi)
         .baseRelStops(40_deg, 160_deg);
     b1.calcServoAng([](Angle absAngle, Angle) -> Angle {
         absAngle = Arm::clamp(absAngle + Angle::Pi*1.5);
-        return Angle::Pi - (absAngle * -1) + 25_deg;
+        return Angle::Pi + absAngle + 25_deg;
+    });
+    b1.calcAbsAng([](Angle servoAng) -> Angle {
+        auto a = servoAng - Angle::Pi - 25_deg;
+        return Arm::clamp(a - Angle::Pi*1.5);
     });
 
     return builder.build();
 }
 
 static void sendArmInfo(Protocol& prot, const Arm::Definition& def) {
-    auto *info = new rbjson::Object();
+    auto info = std::make_unique<rbjson::Object>();
     info->set("height", def.body_height);
     info->set("radius", def.body_radius);
     info->set("off_x", def.arm_offset_x);
     info->set("off_y", def.arm_offset_y);
 
     auto *bones = new rbjson::Array();
+    info->set("bones", bones);
+
     auto& servo = Manager::get().servoBus();
     for(const auto& b : def.bones) {
+        const auto pos = servo.pos(b.servo_id);
+        if(pos.isNaN()) {
+            ESP_LOGE("RBControl", "Rejecting arminfo, servo %d returned NaN position!", b.servo_id);
+            return;
+        }
+
         auto *info_b = new rbjson::Object();
         info_b->set("len", b.length);
-        info_b->set("angle", servo.posOffline(b.servo_id).rad());
+        info_b->set("angle", b.calcAbsAng(pos).rad());
         info_b->set("rmin", b.rel_min.rad());
         info_b->set("rmax", b.rel_max.rad());
         info_b->set("amin", b.abs_min.rad());
@@ -69,8 +84,7 @@ static void sendArmInfo(Protocol& prot, const Arm::Definition& def) {
         info_b->set("bmax", b.base_rel_max.rad());
         bones->push_back(info_b);
     }
-    info->set("bones", bones);
-    prot.send_mustarrive("arminfo", info);
+    prot.send_mustarrive("arminfo", info.release());
 }
 
 void setup() {
@@ -101,8 +115,6 @@ void setup() {
     man.setMotors()
         .pwmMaxPercent(MOTOR_LEFT, 100)
         .pwmMaxPercent(MOTOR_RIGHT, 100)
-        .pwmMaxPercent(MOTOR_TURRET_ROTATION, 30)
-        .pwmMaxPercent(MotorId::M2, 100)
         .set();
 
     auto& servos = man.initSmartServoBus(3);
@@ -124,7 +136,7 @@ void setup() {
 
     // Initialize the communication protocol
     Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
-        printf("Commmand %s\n", command.c_str());
+        //printf("Commmand %s\n", command.c_str());
         if(command == "joy") {
             motors_handle_joysticks(man, pkt);
         } else if(command == "arm") {
@@ -133,11 +145,13 @@ void setup() {
             const double y = pkt->getDouble("y");
 
             bool res = arm->solve(x, y);
-            printf("%f %f %d | %f %f | %f %f\n", x, y, (int)res,
+            /*printf("%f %f %d | %f %f | %f %f || %f %f | %f %f \n", x, y, (int)res,
                 b[0].absAngle.rad(), b[1].absAngle.rad(),
-                b[0].servoAng().rad(), b[1].servoAng().rad());
+                b[0].absAngle.deg(), b[1].absAngle.deg(),
+                b[0].servoAng().rad(), b[1].servoAng().rad(),
+                b[0].servoAng().deg(), b[1].servoAng().deg());*/
 
-            //arm->setServos();
+            arm->setServos(200);
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
             man.servoBus().set(2, isGrabbing ? 75_deg : 160_deg, 200.f, 1.f);

@@ -20,10 +20,10 @@ function Bone(info, color, prev) {
     this.x = 0;
     this.y = 0;
     this.angle = info.angle;
-    if(prev == null) {
+    if(prev === null) {
         this.relAngle = this.angle;
     } else {
-        this.relAngle = clampAng(prev.angle - this.angle);
+        this.relAngle = clampAng(this.angle - prev.angle);
     }
 
     this.relMin = info.rmin;
@@ -56,14 +56,10 @@ function Animation(arm) {
     this.lastTick = null;
 }
 
-Animation.prototype.addFrame = function(angles, durationMs) {
-    if(angles.length !== this.arm.bones.length) {
-        alert("ERROR: Invalid animation angles length.");
-        return;
-    }
-
+Animation.prototype.addFrame = function(x, y, durationMs) {
     this.keyframes.push({
-        angles: angles,
+        x: x,
+        y: y,
         duration: durationMs,
         current: 0,
     });
@@ -80,10 +76,10 @@ Animation.prototype.nextFrame = function() {
     if(this.curFrame >= this.keyframes.length)
         return false;
     var f = this.keyframes[this.curFrame];
-    f.start = [];
-    for(var i = 0; i < this.arm.bones.length; ++i) {
-        f.start.push(this.arm.bones[i].relAngle);
-    }
+
+    var b = this.arm.bones[this.arm.bones.length-1];
+    f.start_x = b.x / this.arm.unit;
+    f.start_y = b.y / this.arm.unit;
     return true;
 };
 
@@ -99,14 +95,14 @@ Animation.prototype.update = function() {
     if(progress >= 1.0)
         progress = 1.0;
 
-    for(var i = 0; i < f.angles.length; ++i) {
-        diff = f.angles[i] - f.start[i];
-        diff = clampAng(diff);
-        this.arm.bones[i].relAngle = clampAng(f.start[i] + diff*progress);
-    }
+    //var diff_x = f.x - f.start_x;
+    //this.arm.pointer.x = (f.start_x + diff_x*progress) * this.arm.unit + this.arm.origin.x;
+    //var diff_y = f.y - f.start_y;
+    //this.arm.pointer.y = (f.start_y + diff_y*progress) * this.arm.unit + this.arm.origin.y;
+    this.arm.pointer.x = f.x * this.arm.unit + this.arm.origin.x;
+    this.arm.pointer.y = f.y * this.arm.unit + this.arm.origin.y;
 
-    this.arm.updateAngles(true);
-    this.arm.draw();
+    this.arm.run();
 
     if(progress >= 1.0 && !this.nextFrame()) {
         this.arm.animation = null;
@@ -126,9 +122,11 @@ function Arm(info, canvasId, manager) {
 
     this.bones = [];
     var colors = [ "blue", "orange", "green", "red", "brown" ];
+    var prev = null;
     for(var i = 0; i < info.bones.length; ++i) {
         this.ARM_TOTAL_LEN += info.bones[i].len;
-        this.bones.push(new Bone(info.bones[i], colors[i%colors.length]));
+        prev = new Bone(info.bones[i], colors[i%colors.length], prev)
+        this.bones.push(prev);
     }
 
     this.buttons = [];
@@ -183,9 +181,7 @@ function Arm(info, canvasId, manager) {
     }.bind(this);
 
     this.resize();
-    this.pointer.x = this.origin.x;
-    this.pointer.y = this.origin.y;
-    this.run();
+    this.updateAngles(true);
 
     this.touched = false;
 }
@@ -213,7 +209,7 @@ Arm.prototype.resize = function() {
     this.origin.x = this.BODY_RADIUS*this.unit;
     this.origin.y = y - this.BODY_HEIGHT*1.3*this.unit - this.unit*this.ARM_BASE_HEIGHT;
 
-    this.run();
+    this.draw();
 }
 
 Arm.prototype.getTouchedButton = function() {
@@ -233,16 +229,17 @@ Arm.prototype.handleButton = function(text) {
             if(this.animation !== null)
                  break;
             this.animation = new Animation(this);
-            this.animation.addFrame([ -1.22, 1.86 ], 300);
-            this.animation.addFrame([ -1.70, 2.87 ], 200);
+            this.animation.addFrame(130, -25, 500);
+            this.animation.addFrame(20, -16, 300);
             this.animation.start();
             break;
         case "EXTEND":
             if(this.animation !== null)
                  break;
             this.animation = new Animation(this);
-            this.animation.addFrame([ -1.22, 1.86 ], 300);
-            this.animation.addFrame([ -0.45, 1.78 ], 200);
+            this.animation.addFrame(130, -25, 500);
+            this.animation.addFrame(132, 18, 200);
+            this.animation.addFrame(118, 76, 200);
             this.animation.start();
             break;
             break;
@@ -355,6 +352,10 @@ Arm.prototype.draw = function() {
     ctx.fillText(dx.toFixed(1), 20, 12);
     ctx.fillText(dy.toFixed(1), 20, 24);
 
+    var tgt = this.getTargetPos();
+    ctx.fillText(tgt.x.toFixed(1), 80, 12);
+    ctx.fillText(tgt.y.toFixed(1), 80, 24);
+
     ctx.save();
     ctx.translate(this.origin.x, this.origin.y);
     var w = this.unit*this.BODY_RADIUS*2;
@@ -377,8 +378,7 @@ Arm.prototype.draw = function() {
         ctx.restore();
     }
 
-
-    ctx.font = '18px monospace';
+    /*ctx.font = '18px monospace';
     ctx.fillStyle = "black"
     var y = this.BODY_HEIGHT*this.unit;
     for(var i = 0; i < this.bones.length; ++i) {
@@ -392,7 +392,7 @@ Arm.prototype.draw = function() {
         var relBase = this.bones[i].angle - this.bones[0].angle;
         ctx.fillText((relBase >= 0 ? " " : "") + relBase.toFixed(2), -350, y);
         y += 20;
-    }
+    }*/
 
     ctx.restore();
 
