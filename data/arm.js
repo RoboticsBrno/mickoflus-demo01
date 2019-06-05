@@ -101,8 +101,11 @@ Animation.prototype.update = function() {
     //this.arm.pointer.y = (f.start_y + diff_y*progress) * this.arm.unit + this.arm.origin.y;
     this.arm.pointer.x = f.x * this.arm.unit + this.arm.origin.x;
     this.arm.pointer.y = f.y * this.arm.unit + this.arm.origin.y;
-
     this.arm.run();
+
+    var b = this.arm.bones[this.arm.bones.length-1];
+    b.x = f.x;
+    b.y = f.y;
 
     if(progress >= 1.0 && !this.nextFrame()) {
         this.arm.animation = null;
@@ -238,7 +241,7 @@ Arm.prototype.handleButton = function(text) {
                  break;
             this.animation = new Animation(this);
             this.animation.addFrame(130, -25, 500);
-            this.animation.addFrame(132, 18, 200);
+            this.animation.addFrame(135, 18, 200);
             this.animation.addFrame(118, 76, 200);
             this.animation.start();
             break;

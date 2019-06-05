@@ -24,6 +24,8 @@
 #define WIFI_NAME "Technika"
 #define WIFI_PASSWORD "materidouska"
 
+//#define FAKE_ARM 1
+
 using namespace rb;
 
 static std::unique_ptr<Arm> buildArm() {
@@ -67,7 +69,11 @@ static void sendArmInfo(Protocol& prot, const Arm::Definition& def) {
 
     auto& servo = Manager::get().servoBus();
     for(const auto& b : def.bones) {
+#if !FAKE_ARM
         const auto pos = servo.pos(b.servo_id);
+#else
+        const auto pos = Angle::rad(-3.14/2);
+#endif
         if(pos.isNaN()) {
             ESP_LOGE("RBControl", "Rejecting arminfo, servo %d returned NaN position!", b.servo_id);
             return;
@@ -101,7 +107,7 @@ void setup() {
     // Connect to the WiFi network
     // If the button 1 is not pressed: connect to WIFI_NAME
     // else create an AP.
-    if(man.expander().digitalRead(SW1) == 0) {
+    if(man.expander().digitalRead(SW1) != 0) {
         man.leds().yellow();
         WiFi::connect(WIFI_NAME, WIFI_PASSWORD);
     } else {
@@ -109,7 +115,7 @@ void setup() {
         WiFi::startAp("Flus" OWNER "-" NAME, "flusflus", 12);
     }
 
-    rb_web_start(80);   // Start web server with control page (see data/index.html)
+    man.monitorTask(rb_web_start(80));   // Start web server with control page (see data/index.html)
 
     // Set motor power limits
     man.setMotors()
@@ -118,7 +124,9 @@ void setup() {
         .set();
 
     auto& servos = man.initSmartServoBus(3);
+#if !FAKE_ARM
     servos.setAutoStop(2);
+#endif
     servos.limit(0,  0_deg, 220_deg );
     servos.limit(1, 85_deg, 210_deg );
     servos.limit(2, 75_deg, 160_deg);
@@ -145,13 +153,15 @@ void setup() {
             const double y = pkt->getDouble("y");
 
             bool res = arm->solve(x, y);
-            /*printf("%f %f %d | %f %f | %f %f || %f %f | %f %f \n", x, y, (int)res,
+            printf("%f %f %d | %f %f | %f %f || %f %f | %f %f | %d %d\n", x, y, (int)res,
                 b[0].absAngle.rad(), b[1].absAngle.rad(),
                 b[0].absAngle.deg(), b[1].absAngle.deg(),
                 b[0].servoAng().rad(), b[1].servoAng().rad(),
-                b[0].servoAng().deg(), b[1].servoAng().deg());*/
-
+                b[0].servoAng().deg(), b[1].servoAng().deg(),
+                b[1].x, b[1].y);
+#if !FAKE_ARM
             arm->setServos(200);
+#endif
         } else if(command == "grab") {
             isGrabbing = !isGrabbing;
             man.servoBus().set(2, isGrabbing ? 75_deg : 160_deg, 200.f, 1.f);
@@ -161,6 +171,8 @@ void setup() {
     });
 
     prot.start();
+    man.monitorTask(prot.getTaskRecv());
+    man.monitorTask(prot.getTaskSend());
 
     //printf("%s's mickoflus '%s' started!\n", OWNER, NAME);
 
@@ -175,6 +187,7 @@ void setup() {
         }
         return true;
     });
+
 
     Serial.begin(115200);
 
