@@ -115,32 +115,26 @@ void setup() {
         WiFi::startAp("Flus" OWNER "-" NAME, "flusflus", 12);
     }
 
-    man.monitorTask(rb_web_start(80));   // Start web server with control page (see data/index.html)
-
     // Set motor power limits
     man.setMotors()
         .pwmMaxPercent(MOTOR_LEFT, 100)
         .pwmMaxPercent(MOTOR_RIGHT, 100)
         .set();
 
+    // Set-up arm and servos
     auto& servos = man.initSmartServoBus(3);
 #if !FAKE_ARM
     servos.setAutoStop(2);
 #endif
-    servos.limit(0,  0_deg, 220_deg );
-    servos.limit(1, 85_deg, 210_deg );
+    servos.limit(0,  0_deg, 220_deg);
+    servos.limit(1, 85_deg, 210_deg);
     servos.limit(2, 75_deg, 160_deg);
 
-    float p1 = servos.pos(0).deg();
-    float p2 = servos.pos(1).deg();
-    float p3 = servos.pos(2).deg();
-    printf("%f\n", p1);
-    printf("%f\n", p2);
-    printf("%f\n", p3);
-
     auto arm = buildArm();
+    bool isGrabbing = servos.pos(2).deg() < 150;
 
-    bool isGrabbing = p3 < 150;
+    // Start web server with control page (see data/index.html)
+    man.monitorTask(rb_web_start(80));
 
     // Initialize the communication protocol
     Protocol prot(OWNER, NAME, "Compiled at " __DATE__ " " __TIME__, [&](const std::string& command, rbjson::Object *pkt) {
@@ -191,6 +185,9 @@ void setup() {
 
     Serial.begin(115200);
 
+    float p1 = servos.pos(0).deg();
+    float p2 = servos.pos(1).deg();
+    float p3 = servos.pos(2).deg();
     char buff[32] = {
         0x55, 0x55, 3, 0, (uint8_t)p1, (uint8_t)p2, (uint8_t)p3,
     };
