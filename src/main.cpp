@@ -4,6 +4,7 @@
 #include <freertos/task.h>
 #include <esp_system.h>
 
+
 #include <Arduino.h>
 
 #include "rbprotocol.h"
@@ -24,7 +25,7 @@
 #define WIFI_NAME "Technika"
 #define WIFI_PASSWORD "materidouska"
 
-//#define FAKE_ARM 1
+#define FAKE_ARM 1
 
 using namespace rb;
 
@@ -122,7 +123,7 @@ void setup() {
         .set();
 
     // Set-up arm and servos
-    auto& servos = man.initSmartServoBus(3);
+    auto& servos = man.initSmartServoBus(3, UART_NUM_1, GPIO_NUM_15);
 #if !FAKE_ARM
     servos.setAutoStop(2);
 #endif
@@ -182,6 +183,34 @@ void setup() {
         return true;
     });
 
+    Serial.begin(115200);
+
+    auto& line = man.lineSensor();
+    ESP_ERROR_CHECK(line.install());
+
+    uint8_t buff[4+16+2] = { 0x55, 0x55, 0, 1 };
+    buff[2] = sizeof(buff) - 4;
+    
+    std::vector<uint16_t> vals;
+    while(1) {
+        vals.clear();
+
+        ESP_ERROR_CHECK(line.read(vals));
+
+        for(size_t i = 0; i < vals.size(); ++i) {
+            buff[4 + i*2] = vals[i] >> 8;
+            buff[4 + i*2 + 1] = vals[i] & 0xFF;
+        }
+
+        auto pos = line.readLine();
+        buff[4+16] = pos >> 8;
+        buff[4+16+1] = pos & 0xFF;
+
+        Serial.write((uint8_t*)buff, sizeof(buff));
+        vTaskDelay(20);
+    }
+
+/*
 
     Serial.begin(115200);
 
@@ -193,6 +222,7 @@ void setup() {
     };
 
     Serial.write((uint8_t*)buff, 7);
+
 
     while(true) {
         while(Serial.read() != 0x55) {
@@ -214,7 +244,7 @@ void setup() {
                 break;
             }
         }
-    }
+    }*/
 }
 
 void loop() {
