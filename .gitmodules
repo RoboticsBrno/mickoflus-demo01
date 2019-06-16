@@ -5,3 +5,7 @@
 [submodule "lib/RB3201-RBProtocol-library"]
 	path = lib/RB3201-RBProtocol-library
 	url = https://github.com/RoboticsBrno/RB3201-RBProtocol-library.git
+[submodule "lib/Esp32-Mcp3008-LineSensor"]
+	path = lib/Esp32-Mcp3008-LineSensor
+	url = https://github.com/RoboticsBrno/Esp32-Mcp3008-LineSensor.git
+	branch = dev

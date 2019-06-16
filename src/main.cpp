@@ -17,6 +17,8 @@
 
 #include "motors.hpp"
 
+#include "linesensor.h"
+
 // CHANGE THESE so you can find the robot in the Android app
 #define OWNER "FrantaFlinta"
 #define NAME "FlusMcFlusy"
@@ -28,6 +30,7 @@
 #define FAKE_ARM 1
 
 using namespace rb;
+using namespace mcp3008;
 
 static std::unique_ptr<Arm> buildArm() {
     ArmBuilder builder;
@@ -185,26 +188,17 @@ void setup() {
 
     Serial.begin(115200);
 
-    auto& line = man.lineSensor();
+    LineSensor line;
     ESP_ERROR_CHECK(line.install());
 
-    uint8_t buff[4+16+2] = { 0x55, 0x55, 0, 1 };
+    uint8_t buff[4 + (LineSensor::CHANNELS*2) + 4] = { 0x55, 0x55, 0, 1 };
     buff[2] = sizeof(buff) - 4;
-    
-    std::vector<uint16_t> vals;
+
     while(1) {
-        vals.clear();
+        ESP_ERROR_CHECK(line.read((uint16_t*)(buff+4)));
 
-        ESP_ERROR_CHECK(line.read(vals));
-
-        for(size_t i = 0; i < vals.size(); ++i) {
-            buff[4 + i*2] = vals[i] >> 8;
-            buff[4 + i*2 + 1] = vals[i] & 0xFF;
-        }
-
-        auto pos = line.readLine();
-        buff[4+16] = pos >> 8;
-        buff[4+16+1] = pos & 0xFF;
+        const float pos = line.readLine(false, 0xFF, 0.1f, 0.2f);
+        *((float*)(buff + 4 + (LineSensor::CHANNELS*2))) = pos;
 
         Serial.write((uint8_t*)buff, sizeof(buff));
         vTaskDelay(20);
