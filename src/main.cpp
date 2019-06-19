@@ -197,7 +197,7 @@ void setup() {
     while(1) {
         ESP_ERROR_CHECK(line.read((uint16_t*)(buff+4)));
 
-        const float pos = line.readLine(false, 0xFF, 0.1f, 0.2f);
+        const float pos = line.readLine(false, 0.1f, 0.2f);
         *((float*)(buff + 4 + (LineSensor::CHANNELS*2))) = pos;
 
         Serial.write((uint8_t*)buff, sizeof(buff));
