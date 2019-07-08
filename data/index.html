@@ -93,6 +93,12 @@
 
   <script type="text/javascript">
     'use strict';
+    if(String.prototype.endsWith === undefined) {
+        String.prototype.endsWith = function(suffix) {
+            return this.indexOf(suffix, this.length - suffix.length) !== -1;
+        };
+    }
+
     function Joystick(elementId, color, keys, buttonText, buttonClickHandler) {
         var zone = document.getElementById(elementId);
 
@@ -325,7 +331,7 @@
             }
             this.socket.send(JSON.stringify({ "c": "joy", "data": data }))
 
-            if(this.arm) {
+            if(this.arm && this.arm.shouldSend()) {
                 var pos = this.arm.getTargetPos();
                 pos["c"] = "arm";
                 this.socket.send(JSON.stringify(pos));
@@ -355,7 +361,13 @@
     Manager.prototype.onMessage = function(event) {
         var data = JSON.parse(event.data);
         if("f" in data) {
-            delete this.mustArriveCommands[data["f"]];
+            var cmd = this.mustArriveCommands[data["f"]];
+            if (cmd !== undefined) {
+                delete this.mustArriveCommands[data["f"]];
+                if(cmd["callback"] !== undefined) {
+                    cmd["callback"]();
+                }
+            }
             return;
         } else if("e" in data) {
             this.socket.send(JSON.stringify({"c": data["c"], "e": data["e"]}));
@@ -378,13 +390,17 @@
         }
     }
 
-    Manager.prototype.sendMustArrive = function(command, data, unlimitedAttempts) {
+    Manager.prototype.sendMustArrive = function(command, data, unlimitedAttempts, callback) {
         var id = ++this.mustArriveIdOut;
         data["c"] = command;
         data["f"] = id;
 
         var payload = JSON.stringify(data);
-        this.mustArriveCommands[id] = { "payload": payload, "attempts": (unlimitedAttempts !== true) ? 0 : null };
+        this.mustArriveCommands[id] = {
+            "payload": payload,
+            "attempts": (unlimitedAttempts !== true) ? 0 : null,
+            "callback": callback,
+        };
         this.socket.send(payload);
     }
 
